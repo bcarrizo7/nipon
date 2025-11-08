@@ -39,8 +39,35 @@
     .stat-label{color:#666;font-size:.85em;margin-top:3px}
 
     .game-area{
-      display:flex;flex-direction:column;gap:20px;width:100%;margin-bottom:20px
+      display:flex;flex-direction:column;gap:20px;width:100%;margin-bottom:20px;flex:1
     }
+    .current-area{
+      display:flex;justify-content:center
+    }
+    .column.single{align-items:center;gap:15px;display:flex;flex-direction:column}
+    .current-card{
+      width:180px;max-width:100%;aspect-ratio:1;background:white;border:3px solid #c31432;border-radius:15px;
+      display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px rgba(195,20,50,.25);
+      transition:transform .3s ease, box-shadow .3s ease;cursor:pointer;position:relative
+    }
+    .current-card:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 14px 30px rgba(195,20,50,.35)}
+    .current-card.placeholder{cursor:default;box-shadow:none;border-style:dashed;border-color:#ffb3ba;background:rgba(255,245,245,.8)}
+    .placeholder-text{color:#a56;letter-spacing:.5px;text-align:center;font-weight:600}
+    .btn-skip{
+      background:linear-gradient(135deg,#ff6b6b 0%,#ff8e53 100%);color:#fff;border-color:#ff6b6b;
+      padding:10px 22px;border-radius:30px;font-size:.95em
+    }
+    .btn-skip:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+    .column.katakana{flex:1}
+    .column.katakana .column-title{margin-bottom:12px}
+    .column.katakana .cards-grid{
+      grid-template-columns:repeat(auto-fit,minmax(55px,1fr));
+      gap:8px;
+      align-content:flex-start;
+      justify-items:center;
+    }
+    .column.katakana .character-card{aspect-ratio:1;border-width:2px;width:100%}
+    .column.katakana .character-card .character-main{font-size:1.6em}
     .column{
       display:flex;flex-direction:column;background:linear-gradient(180deg,#fff5f5 0%,#ffffff 100%);
       border-radius:15px;padding:15px;border:2px solid #ffb3ba
@@ -49,7 +76,7 @@
       text-align:center;font-size:1.3em;font-weight:bold;color:#c31432;margin-bottom:10px;padding:10px;
       background:white;border-radius:8px;border:2px solid #c31432;position:sticky;top:0;z-index:5
     }
-    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:10px;padding:5px}
+    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(55px,1fr));gap:8px;padding:5px}
 
     .character-card{
       aspect-ratio:1;background:white;border:2px solid #ffb3ba;border-radius:10px;
@@ -70,7 +97,7 @@
     .character-card.wrong{animation:shake .5s;border-color:#f44336}
     @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
-    .controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+    .controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:auto}
     button{
       padding:12px 25px;font-size:1em;border:none;border-radius:8px;cursor:pointer;font-weight:bold;
       transition:all .3s ease;font-family:'Noto Sans JP',sans-serif;border:2px solid transparent
@@ -104,14 +131,16 @@
 
     @media (max-width:768px){
       h1{font-size:1.8em}.stats{padding:10px}.stat-value{font-size:1.4em}.stat-label{font-size:.75em}
-      .column-title{font-size:1.1em;padding:8px}.character-main{font-size:1.6em}
-      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(60px,1fr));gap:8px}
+      .column-title{font-size:1.1em;padding:8px}.character-main{font-size:1.5em}
+      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(50px,1fr));gap:6px}
+      .current-card{width:150px}
       button{padding:10px 20px;font-size:.9em}
     }
     @media (max-width:480px){
       .container{padding:15px} h1{font-size:1.5em}.subtitle{font-size:.85em}
-      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(50px,1fr));gap:6px}
-      .character-main{font-size:1.4em}.game-area{gap:15px}
+      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(45px,1fr));gap:5px}
+      .character-main{font-size:1.3em}.game-area{gap:15px}
+      .current-card{width:130px}
     }
   </style>
 </head>
@@ -139,11 +168,16 @@
     </div>
 
     <div class="game-area">
-      <div class="column">
-        <div class="column-title">ひらがな</div>
-        <div class="cards-grid" id="hiragana-column"></div>
+      <div class="current-area">
+        <div class="column single">
+          <div class="column-title">ひらがな</div>
+          <div id="current-hiragana-card" class="current-card placeholder">
+            <span class="placeholder-text">Presiona "Iniciar"</span>
+          </div>
+          <button id="skipBtn" class="btn-skip" disabled>Cambiar kana</button>
+        </div>
       </div>
-      <div class="column">
+      <div class="column katakana">
         <div class="column-title">カタカナ</div>
         <div class="cards-grid" id="katakana-column"></div>
       </div>
@@ -204,16 +238,16 @@
 
     // Estado
     let gameState = {
-      selectedHiragana: null,
-      selectedKatakana: null,
+      currentHiragana: null,
+      remainingHiragana: [],
+      katakanaOrder: [],
       matchedPairs: [],
       totalPairs: allKanaData.length,
-      hiraganaOrder: [],
-      katakanaOrder: [],
       score: 0,
       matches: 0,
       attempts: 0,
-      running: false
+      running: false,
+      hasStarted: false
     };
 
     // Timer
@@ -304,91 +338,110 @@
     }
 
     // Render
-    function renderGame(hiraganaList, katakanaList){
-      const hCol = document.getElementById('hiragana-column');
-      const kCol = document.getElementById('katakana-column');
-      hCol.innerHTML = ''; kCol.innerHTML = '';
+    function renderCurrentHiragana(){
+      const card = document.getElementById('current-hiragana-card');
+      const skipBtn = document.getElementById('skipBtn');
 
-      hiraganaList.forEach(kana=>{
-        const card = document.createElement('div');
-        card.className = 'character-card';
-        card.innerHTML = `
-          <div class="character-main">${kana.hiragana}</div>`;
-        card.dataset.romaji = kana.romaji;
-        card.dataset.char = kana.hiragana;
+      if(gameState.currentHiragana){
+        card.classList.remove('placeholder');
+        card.innerHTML = `<div class="character-main">${gameState.currentHiragana.hiragana}</div>`;
         card.onclick = ()=>{
-          speakKana(card.dataset.char);
-          selectHiragana(kana.romaji, card);
+          speakKana(gameState.currentHiragana.hiragana);
         };
-        hCol.appendChild(card);
-      });
+      }else{
+        card.classList.add('placeholder');
+        const text = gameState.hasStarted ? '¡Kana completados! 🎉' : 'Presiona "Iniciar"';
+        card.innerHTML = `<span class="placeholder-text">${text}</span>`;
+        card.onclick = null;
+      }
 
-      katakanaList.forEach(kana=>{
+      skipBtn.disabled = !gameState.currentHiragana || gameState.remainingHiragana.length <= 1;
+    }
+
+    function renderKatakana(list){
+      const kCol = document.getElementById('katakana-column');
+      kCol.innerHTML = '';
+
+      list.forEach(kana=>{
         const card = document.createElement('div');
         card.className = 'character-card';
-        card.innerHTML = `
-          <div class="character-main">${kana.katakana}</div>`;
+        card.innerHTML = `<div class="character-main">${kana.katakana}</div>`;
         card.dataset.romaji = kana.romaji;
         card.dataset.char = kana.katakana;
         card.onclick = ()=>{
+          if(!gameState.running) return;
           speakKana(card.dataset.char);
-          selectKatakana(kana.romaji, card);
+          handleKatakanaSelection(kana, card);
         };
         kCol.appendChild(card);
       });
     }
 
-    function selectHiragana(romaji, el){
-      if(gameState.matchedPairs.includes(romaji)) return;
-      document.querySelectorAll('#hiragana-column .character-card').forEach(c=>c.classList.remove('selected'));
-      el.classList.add('selected');
-      gameState.selectedHiragana = romaji;
-      checkMatch();
-    }
-
-    function selectKatakana(romaji, el){
-      if(gameState.matchedPairs.includes(romaji)) return;
+    function clearKatakanaSelection(){
       document.querySelectorAll('#katakana-column .character-card').forEach(c=>c.classList.remove('selected'));
-      el.classList.add('selected');
-      gameState.selectedKatakana = romaji;
-      checkMatch();
     }
 
-    function checkMatch(){
-      if(gameState.selectedHiragana && gameState.selectedKatakana){
-        gameState.attempts++;
-        updateStats();
+    function handleKatakanaSelection(kana, card){
+      if(!gameState.currentHiragana) return;
 
-        if(gameState.selectedHiragana === gameState.selectedKatakana){
-          const matchedRomaji = gameState.selectedHiragana;
-          gameState.matchedPairs.push(matchedRomaji);
-          gameState.score += 10; gameState.matches++;
-          gameState.hiraganaOrder = gameState.hiraganaOrder.filter(k => k.romaji !== matchedRomaji);
-          gameState.katakanaOrder = gameState.katakanaOrder.filter(k => k.romaji !== matchedRomaji);
-          renderGame(gameState.hiraganaOrder, gameState.katakanaOrder);
-          showMessage('✓ ¡Perfecto! 正解！','success');
+      clearKatakanaSelection();
+      card.classList.add('selected');
 
-          // ¿Ganó?
-          if(gameState.matches === gameState.totalPairs){
-            setTimeout(()=>{
-              showMessage('🎉 ¡Completado! よくできました！','success');
-              stopTimer();
-            }, 400);
-          }
-        }else{
-          gameState.score = Math.max(0, gameState.score - 2);
-          const selected = document.querySelectorAll('.character-card.selected');
-          selected.forEach(c=>{
-            c.classList.add('wrong');
-            setTimeout(()=>{ c.classList.remove('wrong','selected'); }, 500);
-          });
-          showMessage('✗ ¡Intenta de nuevo! もう一度！','error');
+      gameState.attempts++;
+      updateStats();
+
+      if(kana.romaji === gameState.currentHiragana.romaji){
+        gameState.matchedPairs.push(kana.romaji);
+        gameState.score += 10;
+        gameState.matches++;
+        showMessage('✓ ¡Perfecto! 正解！','success');
+
+        gameState.katakanaOrder = gameState.katakanaOrder.filter(k => k.romaji !== kana.romaji);
+        renderKatakana(gameState.katakanaOrder);
+        advanceToNextHiragana();
+
+        if(gameState.matches === gameState.totalPairs){
+          setTimeout(()=>{
+            showMessage('🎉 ¡Completado! よくできました！','success');
+            stopTimer();
+            renderCurrentHiragana();
+          }, 400);
         }
-
-        updateStats();
-        gameState.selectedHiragana = null;
-        gameState.selectedKatakana = null;
+      }else{
+        gameState.score = Math.max(0, gameState.score - 2);
+        card.classList.add('wrong');
+        setTimeout(()=>{ card.classList.remove('wrong','selected'); }, 600);
+        showMessage('✗ ¡Intenta de nuevo! もう一度！','error');
       }
+
+      updateStats();
+    }
+
+    function advanceToNextHiragana(){
+      if(gameState.remainingHiragana.length){
+        gameState.remainingHiragana.shift();
+      }
+
+      if(gameState.remainingHiragana.length){
+        gameState.currentHiragana = gameState.remainingHiragana[0];
+      }else{
+        gameState.currentHiragana = null;
+      }
+
+      clearKatakanaSelection();
+      renderCurrentHiragana();
+    }
+
+    function cycleCurrentHiragana(){
+      if(!gameState.running) return;
+      if(gameState.remainingHiragana.length <= 1) return;
+
+      const next = gameState.remainingHiragana.shift();
+      gameState.remainingHiragana.push(next);
+      gameState.currentHiragana = gameState.remainingHiragana[0];
+      clearKatakanaSelection();
+      renderCurrentHiragana();
+      showMessage('Kana cambiado. ¡Encuentra su katakana!');
     }
 
     function updateStats(){
@@ -407,12 +460,15 @@
     function startAllMode(){
       resetAllStatsOnly();
       countdownThen(()=>{
+        gameState.hasStarted = true;
         gameState.totalPairs = allKanaData.length;
-        gameState.hiraganaOrder = shuffle(allKanaData);
+        gameState.remainingHiragana = shuffle(allKanaData);
+        gameState.currentHiragana = gameState.remainingHiragana[0] || null;
         gameState.katakanaOrder = shuffle(allKanaData);
-        renderGame(gameState.hiraganaOrder, gameState.katakanaOrder);
+        renderCurrentHiragana();
+        renderKatakana(gameState.katakanaOrder);
         startTimer();
-        showMessage('¡Todos los 46 caracteres! 🎌');
+        showMessage('¡Encuentra el katakana que corresponde!');
       });
     }
 
@@ -440,27 +496,30 @@
 
     // Reset total (sin empezar juego)
     function resetAll(){
-      stopTimer();
-      document.getElementById('timer').textContent = '00:00.00';
-      document.getElementById('hiragana-column').innerHTML = '';
-      document.getElementById('katakana-column').innerHTML = '';
-      showMessage('¡Listo! Presiona "Iniciar" para jugar.');
       resetAllStatsOnly();
+      showMessage('¡Listo! Presiona "Iniciar" para jugar.');
     }
 
     function resetAllStatsOnly(){
-      gameState.selectedHiragana = null;
-      gameState.selectedKatakana = null;
-      gameState.matchedPairs = [];
-      gameState.hiraganaOrder = [];
+      stopTimer();
+      gameState.currentHiragana = null;
+      gameState.remainingHiragana = [];
       gameState.katakanaOrder = [];
+      gameState.matchedPairs = [];
       gameState.totalPairs = allKanaData.length;
       gameState.score = 0; gameState.matches = 0; gameState.attempts = 0;
+      gameState.hasStarted = false;
       updateStats();
+      renderKatakana([]);
+      renderCurrentHiragana();
+      document.getElementById('timer').textContent = '00:00.00';
     }
 
     // Mensaje inicial
     showMessage('Presiona "Iniciar" para comenzar con cuenta regresiva.');
+    renderCurrentHiragana();
+
+    document.getElementById('skipBtn').addEventListener('click', cycleCurrentHiragana);
   </script>
 </body>
 </html>
