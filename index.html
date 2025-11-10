@@ -133,7 +133,9 @@
     .overlay.show{display:flex}
     .countdown{
       color:#fff;font-weight:800;font-size:6rem;text-shadow:0 8px 24px rgba(0,0,0,.6);
-      animation:pop .6s ease-in-out
+    }
+    .countdown.is-animating{
+      animation:pop .6s ease-in-out;
     }
     @keyframes pop{0%{transform:scale(.6);opacity:.2}70%{transform:scale(1.1);opacity:1}100%{transform:scale(1)}}
 
@@ -326,6 +328,11 @@
     let cachedVoices = [];
     let speakTimeout = null;
     const SPEAK_DELAY_MS = 500; // retardo antes de pronunciar
+    let countdownTimeouts = [];
+    function clearCountdownTimers(){
+      countdownTimeouts.forEach(t => clearTimeout(t));
+      countdownTimeouts = [];
+    }
 
     function refreshVoices(){
       if(!('speechSynthesis' in window)) return;
@@ -367,6 +374,12 @@
       }, SPEAK_DELAY_MS);
     }
     // ================================================
+
+    function announceCurrentTarget(force = false){
+      if(!gameState.currentPair) return;
+      if(!force && !gameState.running) return;
+      speakKana(getTargetChar(gameState.currentPair));
+    }
 
     // Sonido de acierto
     let audioCtx = null;
@@ -524,6 +537,7 @@
       }
 
       renderCurrentTarget();
+      announceCurrentTarget();
     }
 
     function cycleCurrent(){
@@ -537,6 +551,7 @@
       renderCurrentTarget();
       const config = MODE_CONFIG[gameState.mode];
       showMessage(config.cycleMessage);
+      announceCurrentTarget();
     }
 
     function updateStats(){
@@ -565,6 +580,7 @@
         startTimer();
         const config = MODE_CONFIG[gameState.mode];
         showMessage(config.startMessage);
+        announceCurrentTarget(true);
       });
     }
 
@@ -572,22 +588,36 @@
     function countdownThen(cb){
       const overlay = document.getElementById('overlay');
       const label = document.getElementById('countdown');
-      overlay.classList.add('show');
-
       const steps = ['3','2','1','YA!'];
-      let i = 0;
-      label.textContent = steps[i];
-      const iv = setInterval(()=>{
-        i++;
-        if(i < steps.length){
-          label.textContent = steps[i];
-          label.classList.remove('countdown'); void label.offsetWidth; label.classList.add('countdown');
+      let index = 0;
+
+      clearCountdownTimers();
+      overlay.classList.add('show');
+      label.classList.remove('is-animating');
+      label.textContent = steps[0];
+
+      const runStep = ()=>{
+        label.textContent = steps[index];
+        label.classList.remove('is-animating');
+        void label.offsetWidth;
+        label.classList.add('is-animating');
+
+        if(index < steps.length - 1){
+          countdownTimeouts.push(setTimeout(()=>{
+            index++;
+            runStep();
+          }, 800));
         }else{
-          clearInterval(iv);
-          overlay.classList.remove('show');
-          cb && cb();
+          countdownTimeouts.push(setTimeout(()=>{
+            overlay.classList.remove('show');
+            label.classList.remove('is-animating');
+            clearCountdownTimers();
+            cb && cb();
+          }, 650));
         }
-      }, 800);
+      };
+
+      countdownTimeouts.push(setTimeout(runStep, 20));
     }
 
     // Reset total (sin empezar juego)
@@ -599,6 +629,9 @@
 
     function resetAllStatsOnly(){
       stopTimer();
+      clearCountdownTimers();
+      if (speakTimeout) { clearTimeout(speakTimeout); speakTimeout = null; }
+      if('speechSynthesis' in window){ speechSynthesis.cancel(); }
       gameState.currentPair = null;
       gameState.remainingPairs = [];
       gameState.optionOrder = [];
@@ -610,6 +643,10 @@
       renderOptions([]);
       renderCurrentTarget();
       document.getElementById('timer').textContent = '00:00.00';
+      const overlay = document.getElementById('overlay');
+      const label = document.getElementById('countdown');
+      overlay.classList.remove('show');
+      label.classList.remove('is-animating');
     }
 
     function updateModeToggle(){
