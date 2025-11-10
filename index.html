@@ -45,6 +45,12 @@
       display:flex;justify-content:center
     }
     .column.single{align-items:center;gap:15px;display:flex;flex-direction:column}
+    .current-card-row{
+      display:flex;align-items:center;gap:12px
+    }
+    .current-card-row .btn-skip{
+      align-self:stretch;display:flex;align-items:center;justify-content:center;white-space:nowrap
+    }
     .current-card{
       width:180px;max-width:100%;aspect-ratio:1;background:white;border:3px solid #c31432;border-radius:15px;
       display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px rgba(195,20,50,.25);
@@ -58,16 +64,16 @@
       padding:10px 22px;border-radius:30px;font-size:.95em
     }
     .btn-skip:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
-    .column.katakana{flex:1}
-    .column.katakana .column-title{margin-bottom:12px}
-    .column.katakana .cards-grid{
+    .column.options{flex:1}
+    .column.options .column-title{margin-bottom:12px}
+    .column.options .cards-grid{
       grid-template-columns:repeat(auto-fit,minmax(55px,1fr));
       gap:8px;
       align-content:flex-start;
       justify-items:center;
     }
-    .column.katakana .character-card{aspect-ratio:1;border-width:2px;width:100%}
-    .column.katakana .character-card .character-main{font-size:1.6em}
+    .column.options .character-card{aspect-ratio:1;border-width:2px;width:100%}
+    .column.options .character-card .character-main{font-size:1.6em}
     .column{
       display:flex;flex-direction:column;background:linear-gradient(180deg,#fff5f5 0%,#ffffff 100%);
       border-radius:15px;padding:15px;border:2px solid #ffb3ba
@@ -94,6 +100,13 @@
       border-color:#c31432;background:linear-gradient(135deg,#ffe6e6 0%,#ffb3ba 100%);
       transform:scale(1.1);box-shadow:0 0 20px rgba(195,20,50,.5)
     }
+    .current-card.correct,.character-card.correct{
+      background:linear-gradient(135deg,#d4edda 0%,#a5d6a7 100%);
+      border-color:#4caf50 !important;
+      box-shadow:0 0 25px rgba(76,175,80,.45);
+      color:#1b5e20
+    }
+    .character-card.correct{transform:scale(1.08)}
     .character-card.wrong{animation:shake .5s;border-color:#f44336}
     @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
@@ -106,6 +119,8 @@
     .btn-all:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(255,152,0,.4)}
     .btn-reset{background:linear-gradient(135deg,#240b36 0%,#4a1a5e 100%);color:white;border-color:#1a0826}
     .btn-reset:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(36,11,54,.4)}
+    .btn-mode{background:linear-gradient(135deg,#4caf50 0%,#2e7d32 100%);color:white;border-color:#1b5e20}
+    .btn-mode:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(76,175,80,.45)}
 
     .message{text-align:center;margin-top:10px;font-size:1.1em;font-weight:bold;min-height:25px}
     .success{color:#4caf50}.error{color:#c31432}
@@ -134,13 +149,18 @@
       .column-title{font-size:1.1em;padding:8px}.character-main{font-size:1.5em}
       .cards-grid{grid-template-columns:repeat(auto-fit,minmax(50px,1fr));gap:6px}
       .current-card{width:150px}
+      .current-card-row{width:100%;justify-content:space-between}
+      .btn-skip{padding:10px 18px;border-radius:20px}
       button{padding:10px 20px;font-size:.9em}
+      .current-area{position:sticky;top:0;z-index:25;background:rgba(255,255,255,.95);padding:10px 0;margin:-10px 0 0}
     }
     @media (max-width:480px){
       .container{padding:15px} h1{font-size:1.5em}.subtitle{font-size:.85em}
       .cards-grid{grid-template-columns:repeat(auto-fit,minmax(45px,1fr));gap:5px}
       .character-main{font-size:1.3em}.game-area{gap:15px}
       .current-card{width:130px}
+      .current-card-row{flex-wrap:wrap;justify-content:center}
+      .btn-skip{width:auto;min-width:140px}
     }
   </style>
 </head>
@@ -170,22 +190,25 @@
     <div class="game-area">
       <div class="current-area">
         <div class="column single">
-          <div class="column-title">ひらがな</div>
-          <div id="current-hiragana-card" class="current-card placeholder">
-            <span class="placeholder-text">Presiona "Iniciar"</span>
+          <div class="column-title" id="target-column-title">ひらがな</div>
+          <div class="current-card-row">
+            <div id="current-target-card" class="current-card placeholder">
+              <span class="placeholder-text">Presiona "Iniciar"</span>
+            </div>
+            <button id="skipBtn" class="btn-skip" disabled>Cambiar kana</button>
           </div>
-          <button id="skipBtn" class="btn-skip" disabled>Cambiar kana</button>
         </div>
       </div>
-      <div class="column katakana">
-        <div class="column-title">カタカナ</div>
-        <div class="cards-grid" id="katakana-column"></div>
+      <div class="column options">
+        <div class="column-title" id="options-column-title">カタカナ</div>
+        <div class="cards-grid" id="options-column"></div>
       </div>
     </div>
 
     <div class="controls">
       <!-- Cambiado a "Iniciar" -->
       <button id="startBtn" class="btn-all" onclick="startAllMode()">Iniciar</button>
+      <button id="modeToggleBtn" class="btn-mode" onclick="toggleMode()" title="Cambiar entre あ→ア y ア→あ">🎮 あ→ア</button>
       <button class="btn-reset" onclick="resetAll()">Reiniciar</button>
     </div>
 
@@ -236,11 +259,29 @@
       { hiragana:'を', katakana:'ヲ', romaji:'wo' }, { hiragana:'ん', katakana:'ン', romaji:'n' }
     ];
 
+    const MODE_CONFIG = {
+      'hiragana-to-katakana': {
+        targetTitle: 'ひらがな',
+        optionsTitle: 'カタカナ',
+        startMessage: '¡Encuentra el katakana que corresponde!',
+        cycleMessage: 'Kana cambiado. ¡Encuentra su katakana!',
+        toggleLabel: '🎮 あ→ア'
+      },
+      'katakana-to-hiragana': {
+        targetTitle: 'カタカナ',
+        optionsTitle: 'ひらがな',
+        startMessage: '¡Encuentra el hiragana correcto!',
+        cycleMessage: 'Kana cambiado. ¡Encuentra su hiragana!',
+        toggleLabel: '🎮 ア→あ'
+      }
+    };
+
     // Estado
     let gameState = {
-      currentHiragana: null,
-      remainingHiragana: [],
-      katakanaOrder: [],
+      mode: 'hiragana-to-katakana',
+      currentPair: null,
+      remainingPairs: [],
+      optionOrder: [],
       matchedPairs: [],
       totalPairs: allKanaData.length,
       score: 0,
@@ -327,6 +368,36 @@
     }
     // ================================================
 
+    // Sonido de acierto
+    let audioCtx = null;
+    function getAudioContext(){
+      if(!audioCtx){
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if(Ctx){ audioCtx = new Ctx(); }
+      }
+      return audioCtx;
+    }
+
+    function playSuccessTone(){
+      const ctx = getAudioContext();
+      if(!ctx) return;
+      if(ctx.state === 'suspended'){ ctx.resume(); }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }
+
     // Util
     function shuffle(array){
       const a = [...array];
@@ -338,75 +409,99 @@
     }
 
     // Render
-    function renderCurrentHiragana(){
-      const card = document.getElementById('current-hiragana-card');
-      const skipBtn = document.getElementById('skipBtn');
+    function getTargetChar(kana){
+      return gameState.mode === 'hiragana-to-katakana' ? kana.hiragana : kana.katakana;
+    }
 
-      if(gameState.currentHiragana){
-        card.classList.remove('placeholder');
-        card.innerHTML = `<div class="character-main">${gameState.currentHiragana.hiragana}</div>`;
+    function getOptionChar(kana){
+      return gameState.mode === 'hiragana-to-katakana' ? kana.katakana : kana.hiragana;
+    }
+
+    function renderCurrentTarget(){
+      const card = document.getElementById('current-target-card');
+      const skipBtn = document.getElementById('skipBtn');
+      const config = MODE_CONFIG[gameState.mode];
+      document.getElementById('target-column-title').textContent = config.targetTitle;
+
+      if(gameState.currentPair){
+        card.classList.remove('placeholder','correct');
+        card.innerHTML = `<div class="character-main">${getTargetChar(gameState.currentPair)}</div>`;
         card.onclick = ()=>{
-          speakKana(gameState.currentHiragana.hiragana);
+          speakKana(getTargetChar(gameState.currentPair));
         };
       }else{
         card.classList.add('placeholder');
+        card.classList.remove('correct');
         const text = gameState.hasStarted ? '¡Kana completados! 🎉' : 'Presiona "Iniciar"';
         card.innerHTML = `<span class="placeholder-text">${text}</span>`;
         card.onclick = null;
       }
 
-      skipBtn.disabled = !gameState.currentHiragana || gameState.remainingHiragana.length <= 1;
+      skipBtn.disabled = !gameState.currentPair || gameState.remainingPairs.length <= 1;
     }
 
-    function renderKatakana(list){
-      const kCol = document.getElementById('katakana-column');
-      kCol.innerHTML = '';
+    function renderOptions(list){
+      const column = document.getElementById('options-column');
+      const config = MODE_CONFIG[gameState.mode];
+      document.getElementById('options-column-title').textContent = config.optionsTitle;
+      column.innerHTML = '';
 
       list.forEach(kana=>{
         const card = document.createElement('div');
         card.className = 'character-card';
-        card.innerHTML = `<div class="character-main">${kana.katakana}</div>`;
+        card.innerHTML = `<div class="character-main">${getOptionChar(kana)}</div>`;
         card.dataset.romaji = kana.romaji;
-        card.dataset.char = kana.katakana;
+        card.dataset.char = getOptionChar(kana);
         card.onclick = ()=>{
           if(!gameState.running) return;
           speakKana(card.dataset.char);
-          handleKatakanaSelection(kana, card);
+          handleOptionSelection(kana, card);
         };
-        kCol.appendChild(card);
+        column.appendChild(card);
       });
     }
 
-    function clearKatakanaSelection(){
-      document.querySelectorAll('#katakana-column .character-card').forEach(c=>c.classList.remove('selected'));
+    function clearOptionSelection(){
+      document.querySelectorAll('#options-column .character-card').forEach(c=>c.classList.remove('selected'));
     }
 
-    function handleKatakanaSelection(kana, card){
-      if(!gameState.currentHiragana) return;
+    function handleOptionSelection(kana, card){
+      if(!gameState.currentPair) return;
 
-      clearKatakanaSelection();
+      clearOptionSelection();
       card.classList.add('selected');
 
       gameState.attempts++;
       updateStats();
 
-      if(kana.romaji === gameState.currentHiragana.romaji){
+      if(kana.romaji === gameState.currentPair.romaji){
         gameState.matchedPairs.push(kana.romaji);
         gameState.score += 10;
         gameState.matches++;
         showMessage('✓ ¡Perfecto! 正解！','success');
+        playSuccessTone();
 
-        gameState.katakanaOrder = gameState.katakanaOrder.filter(k => k.romaji !== kana.romaji);
-        renderKatakana(gameState.katakanaOrder);
-        advanceToNextHiragana();
+        const targetCard = document.getElementById('current-target-card');
+        targetCard.classList.add('correct');
+        card.classList.add('correct');
 
-        if(gameState.matches === gameState.totalPairs){
-          setTimeout(()=>{
-            showMessage('🎉 ¡Completado! よくできました！','success');
-            stopTimer();
-            renderCurrentHiragana();
-          }, 400);
-        }
+        setTimeout(()=>{
+          targetCard.classList.remove('correct');
+          clearOptionSelection();
+
+          gameState.optionOrder = gameState.optionOrder.filter(k => k.romaji !== kana.romaji);
+          renderOptions(gameState.optionOrder);
+
+          advanceToNext();
+
+          if(gameState.matches === gameState.totalPairs){
+            setTimeout(()=>{
+              showMessage('🎉 ¡Completado! よくできました！','success');
+              stopTimer();
+              renderCurrentTarget();
+            }, 150);
+          }
+        }, 450);
       }else{
         gameState.score = Math.max(0, gameState.score - 2);
         card.classList.add('wrong');
@@ -417,31 +512,31 @@
       updateStats();
     }
 
-    function advanceToNextHiragana(){
-      if(gameState.remainingHiragana.length){
-        gameState.remainingHiragana.shift();
+    function advanceToNext(){
+      if(gameState.remainingPairs.length){
+        gameState.remainingPairs.shift();
       }
 
-      if(gameState.remainingHiragana.length){
-        gameState.currentHiragana = gameState.remainingHiragana[0];
+      if(gameState.remainingPairs.length){
+        gameState.currentPair = gameState.remainingPairs[0];
       }else{
-        gameState.currentHiragana = null;
+        gameState.currentPair = null;
       }
 
-      clearKatakanaSelection();
-      renderCurrentHiragana();
+      renderCurrentTarget();
     }
 
-    function cycleCurrentHiragana(){
+    function cycleCurrent(){
       if(!gameState.running) return;
-      if(gameState.remainingHiragana.length <= 1) return;
+      if(gameState.remainingPairs.length <= 1) return;
 
-      const next = gameState.remainingHiragana.shift();
-      gameState.remainingHiragana.push(next);
-      gameState.currentHiragana = gameState.remainingHiragana[0];
-      clearKatakanaSelection();
-      renderCurrentHiragana();
-      showMessage('Kana cambiado. ¡Encuentra su katakana!');
+      const next = gameState.remainingPairs.shift();
+      gameState.remainingPairs.push(next);
+      gameState.currentPair = gameState.remainingPairs[0];
+      clearOptionSelection();
+      renderCurrentTarget();
+      const config = MODE_CONFIG[gameState.mode];
+      showMessage(config.cycleMessage);
     }
 
     function updateStats(){
@@ -462,13 +557,14 @@
       countdownThen(()=>{
         gameState.hasStarted = true;
         gameState.totalPairs = allKanaData.length;
-        gameState.remainingHiragana = shuffle(allKanaData);
-        gameState.currentHiragana = gameState.remainingHiragana[0] || null;
-        gameState.katakanaOrder = shuffle(allKanaData);
-        renderCurrentHiragana();
-        renderKatakana(gameState.katakanaOrder);
+        gameState.remainingPairs = shuffle(allKanaData);
+        gameState.currentPair = gameState.remainingPairs[0] || null;
+        gameState.optionOrder = shuffle(allKanaData);
+        renderCurrentTarget();
+        renderOptions(gameState.optionOrder);
         startTimer();
-        showMessage('¡Encuentra el katakana que corresponde!');
+        const config = MODE_CONFIG[gameState.mode];
+        showMessage(config.startMessage);
       });
     }
 
@@ -497,29 +593,51 @@
     // Reset total (sin empezar juego)
     function resetAll(){
       resetAllStatsOnly();
-      showMessage('¡Listo! Presiona "Iniciar" para jugar.');
+      const config = MODE_CONFIG[gameState.mode];
+      showMessage(`¡Listo! Presiona "Iniciar" para jugar ${config.targetTitle} ⇄ ${config.optionsTitle}.`);
     }
 
     function resetAllStatsOnly(){
       stopTimer();
-      gameState.currentHiragana = null;
-      gameState.remainingHiragana = [];
-      gameState.katakanaOrder = [];
+      gameState.currentPair = null;
+      gameState.remainingPairs = [];
+      gameState.optionOrder = [];
       gameState.matchedPairs = [];
       gameState.totalPairs = allKanaData.length;
       gameState.score = 0; gameState.matches = 0; gameState.attempts = 0;
       gameState.hasStarted = false;
       updateStats();
-      renderKatakana([]);
-      renderCurrentHiragana();
+      renderOptions([]);
+      renderCurrentTarget();
       document.getElementById('timer').textContent = '00:00.00';
+    }
+
+    function updateModeToggle(){
+      const btn = document.getElementById('modeToggleBtn');
+      if(btn){
+        const config = MODE_CONFIG[gameState.mode];
+        btn.textContent = config.toggleLabel;
+        btn.setAttribute('aria-label', `Modo actual: ${config.targetTitle} → ${config.optionsTitle}. Haz clic para invertir.`);
+        btn.title = `Modo actual: ${config.targetTitle} → ${config.optionsTitle}. Haz clic para invertir.`;
+      }
+    }
+
+    function toggleMode(){
+      gameState.mode = gameState.mode === 'hiragana-to-katakana'
+        ? 'katakana-to-hiragana'
+        : 'hiragana-to-katakana';
+      resetAllStatsOnly();
+      updateModeToggle();
+      showMessage('Modo cambiado. Presiona "Iniciar" para comenzar.');
     }
 
     // Mensaje inicial
     showMessage('Presiona "Iniciar" para comenzar con cuenta regresiva.');
-    renderCurrentHiragana();
+    renderCurrentTarget();
+    renderOptions([]);
+    updateModeToggle();
 
-    document.getElementById('skipBtn').addEventListener('click', cycleCurrentHiragana);
+    document.getElementById('skipBtn').addEventListener('click', cycleCurrent);
   </script>
 </body>
 </html>
