@@ -127,8 +127,9 @@
 
     /* Overlay de cuenta regresiva */
     .overlay{
-      position:absolute;inset:0;background:rgba(0,0,0,.55);
-      display:none;align-items:center;justify-content:center;z-index:20
+      position:fixed;inset:0;background:rgba(0,0,0,.55);
+      display:none;align-items:center;justify-content:center;z-index:999;
+      padding:20px;
     }
     .overlay.show{display:flex}
     .countdown{
@@ -163,6 +164,7 @@
       .current-card{width:130px}
       .current-card-row{flex-wrap:wrap;justify-content:center}
       .btn-skip{width:auto;min-width:140px}
+      .countdown{font-size:4rem}
     }
   </style>
 </head>
