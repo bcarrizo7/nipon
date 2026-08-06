@@ -1,682 +1,1494 @@
 <!DOCTYPE html>
+<!--
+  かな Match — juego para practicar hiragana y katakana.
+  Licencia MIT · ver LICENSE.
+  Los datos de trazos (kana-strokes.js) van bajo SIL OFL 1.1 · ver OFL.txt.
+-->
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kana Match Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+  <meta name="theme-color" content="#c31432" />
+  <meta name="description" content="Juego para practicar hiragana y katakana." />
+  <title>かな Match — Hiragana ⇄ Katakana</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+    :root{
+      --red:#c31432;
+      --red-soft:#e0405c;
+      --dark:#240b36;
+      --pink:#ffd7dc;
+      --pink-line:#f3b8bf;
+      --ink:#2b2033;
+      --muted:#8a7d8f;
+      --green:#2e9e57;
+      --green-bg:#e4f6ea;
+      --surface:#ffffff;
+      --gap:8px;
+      --radius:14px;
+    }
 
     *{margin:0;padding:0;box-sizing:border-box}
+
+    html,body{height:100%}
+
     body{
-      font-family:'Noto Sans JP',sans-serif;
-      background:linear-gradient(135deg,#c31432 0%,#240b36 100%);
-      background-image:
-        radial-gradient(circle at 20% 50%,rgba(255,107,107,.1) 0%,transparent 50%),
-        radial-gradient(circle at 80% 80%,rgba(255,182,193,.1) 0%,transparent 50%),
-        linear-gradient(135deg,#c31432 0%,#240b36 100%);
-      min-height:100vh;display:flex;justify-content:center;align-items:flex-start;
-      padding:20px 10px;overflow:auto;
+      font-family:'Noto Sans JP',system-ui,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%,rgba(255,182,193,.35) 0%,transparent 45%),
+        radial-gradient(circle at 90% 100%,rgba(195,20,50,.18) 0%,transparent 45%),
+        linear-gradient(160deg,#fff6f7 0%,#ffeef0 60%,#ffe3e7 100%);
+      /* sin scroll, nunca — ni en PC ni en móvil */
+      height:100dvh;
+      overflow:hidden;
+      overscroll-behavior:none;
+      -webkit-tap-highlight-color:transparent;
+      display:flex;
+      justify-content:center;
     }
-    .sakura{position:fixed;width:15px;height:15px;background:rgba(255,182,193,.6);border-radius:50% 0 50% 0;animation:fall linear infinite;z-index:1}
-    @keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}
 
-    .container{
-      background:rgba(255,255,255,.98);border-radius:20px;padding:25px;width:100%;
-      max-width:1400px;min-height:90vh;box-shadow:0 20px 60px rgba(0,0,0,.5);
-      display:flex;flex-direction:column;border:3px solid #c31432;position:relative;z-index:10
-    }
-    .header{text-align:center;margin-bottom:15px;border-bottom:3px solid #c31432;padding-bottom:15px}
-    h1{color:#c31432;font-size:2.5em;margin-bottom:5px;text-shadow:2px 2px 4px rgba(0,0,0,.1);font-weight:700}
-    .subtitle{color:#666;font-size:1em}
+    button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+    button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 
-    .stats{
-      display:flex;justify-content:space-around;margin-bottom:15px;padding:15px;
-      background:linear-gradient(135deg,#fff5f5 0%,#ffe6e6 100%);border-radius:10px;border:2px solid #ffb3ba
+    /* ============ LAYOUT: 3 filas, la del medio manda ============ */
+    .app{
+      position:relative;
+      width:100%;
+      max-width:1100px;
+      height:100dvh;
+      padding:calc(8px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+      display:flex;
+      flex-direction:column;
+      gap:var(--gap);
     }
-    .stat{text-align:center}
-    .stat-value{font-size:1.8em;font-weight:bold;color:#c31432}
-    .stat-label{color:#666;font-size:.85em;margin-top:3px}
 
-    .game-area{
-      display:flex;flex-direction:column;gap:20px;width:100%;margin-bottom:20px;flex:1
+    /* ---------- Barra superior ---------- */
+    .topbar{
+      flex:none;
+      display:flex;align-items:center;gap:10px;
+      background:var(--surface);
+      border:1px solid var(--pink-line);
+      border-radius:var(--radius);
+      padding:8px 10px;
+      box-shadow:0 2px 10px rgba(195,20,50,.07);
     }
-    .current-area{
-      display:flex;justify-content:center
+    .brand{
+      font-size:1.05rem;font-weight:900;color:var(--red);
+      white-space:nowrap;letter-spacing:.3px;
     }
-    .column.single{align-items:center;gap:15px;display:flex;flex-direction:column}
-    .current-card-row{
-      display:flex;align-items:center;gap:12px
-    }
-    .current-card-row .btn-skip{
-      align-self:stretch;display:flex;align-items:center;justify-content:center;white-space:nowrap
-    }
-    .current-card{
-      width:180px;max-width:100%;aspect-ratio:1;background:white;border:3px solid #c31432;border-radius:15px;
-      display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px rgba(195,20,50,.25);
-      transition:transform .3s ease, box-shadow .3s ease;cursor:pointer;position:relative
-    }
-    .current-card:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 14px 30px rgba(195,20,50,.35)}
-    .current-card.placeholder{cursor:default;box-shadow:none;border-style:dashed;border-color:#ffb3ba;background:rgba(255,245,245,.8)}
-    .placeholder-text{color:#a56;letter-spacing:.5px;text-align:center;font-weight:600}
-    .btn-skip{
-      background:linear-gradient(135deg,#ff6b6b 0%,#ff8e53 100%);color:#fff;border-color:#ff6b6b;
-      padding:10px 22px;border-radius:30px;font-size:.95em
-    }
-    .btn-skip:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
-    .column.options{flex:1}
-    .column.options .column-title{margin-bottom:12px}
-    .column.options .cards-grid{
-      grid-template-columns:repeat(auto-fit,minmax(55px,1fr));
-      gap:8px;
-      align-content:flex-start;
-      justify-items:center;
-    }
-    .column.options .character-card{aspect-ratio:1;border-width:2px;width:100%}
-    .column.options .character-card .character-main{font-size:1.6em}
-    .column{
-      display:flex;flex-direction:column;background:linear-gradient(180deg,#fff5f5 0%,#ffffff 100%);
-      border-radius:15px;padding:15px;border:2px solid #ffb3ba
-    }
-    .column-title{
-      text-align:center;font-size:1.3em;font-weight:bold;color:#c31432;margin-bottom:10px;padding:10px;
-      background:white;border-radius:8px;border:2px solid #c31432;position:sticky;top:0;z-index:5
-    }
-    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(55px,1fr));gap:8px;padding:5px}
-
-    .character-card{
-      aspect-ratio:1;background:white;border:2px solid #ffb3ba;border-radius:10px;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      cursor:pointer;transition:all .3s ease;user-select:none;position:relative
-    }
-    .character-card::before{
-      content:'';position:absolute;inset:-2px;background:linear-gradient(45deg,#c31432,#ff6b6b,#c31432);
-      border-radius:10px;opacity:0;transition:opacity .3s;z-index:-1
-    }
-    .character-card:hover::before{opacity:.5}
-    .character-main{font-size:2em;font-weight:700;color:#240b36}
-    .character-card:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 8px 16px rgba(195,20,50,.3)}
-    .character-card.selected{
-      border-color:#c31432;background:linear-gradient(135deg,#ffe6e6 0%,#ffb3ba 100%);
-      transform:scale(1.1);box-shadow:0 0 20px rgba(195,20,50,.5)
-    }
-    .current-card.correct,.character-card.correct{
-      background:linear-gradient(135deg,#d4edda 0%,#a5d6a7 100%);
-      border-color:#4caf50 !important;
-      box-shadow:0 0 25px rgba(76,175,80,.45);
-      color:#1b5e20
-    }
-    .character-card.correct{transform:scale(1.08)}
-    .character-card.wrong{animation:shake .5s;border-color:#f44336}
-    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
-
-    .controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:auto}
-    button{
-      padding:12px 25px;font-size:1em;border:none;border-radius:8px;cursor:pointer;font-weight:bold;
-      transition:all .3s ease;font-family:'Noto Sans JP',sans-serif;border:2px solid transparent
-    }
-    .btn-all{background:linear-gradient(135deg,#ff9800 0%,#ff6b00 100%);color:white;border-color:#e65100}
-    .btn-all:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(255,152,0,.4)}
-    .btn-reset{background:linear-gradient(135deg,#240b36 0%,#4a1a5e 100%);color:white;border-color:#1a0826}
-    .btn-reset:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(36,11,54,.4)}
-    .btn-mode{background:linear-gradient(135deg,#4caf50 0%,#2e7d32 100%);color:white;border-color:#1b5e20}
-    .btn-mode:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(76,175,80,.45)}
-
-    .message{text-align:center;margin-top:10px;font-size:1.1em;font-weight:bold;min-height:25px}
-    .success{color:#4caf50}.error{color:#c31432}
-
-    /* Overlay de cuenta regresiva */
-    .overlay{
-      position:fixed;inset:0;background:rgba(0,0,0,.55);
-      display:none;align-items:center;justify-content:center;z-index:999;
-      padding:20px;
-    }
-    .overlay.show{display:flex}
-    .countdown{
-      color:#fff;font-weight:800;font-size:6rem;text-shadow:0 8px 24px rgba(0,0,0,.6);
-    }
-    .countdown.is-animating{
-      animation:pop .6s ease-in-out;
-    }
-    @keyframes pop{0%{transform:scale(.6);opacity:.2}70%{transform:scale(1.1);opacity:1}100%{transform:scale(1)}}
-
-    /* Timer en el header */
     .timer{
-      margin-top:8px;color:#240b36;font-weight:700;font-variant-numeric:tabular-nums;
-      display:inline-block;padding:6px 12px;border:2px solid #c31432;border-radius:10px;background:#fff
+      font-variant-numeric:tabular-nums;font-weight:700;font-size:1.05rem;
+      color:var(--dark);background:var(--pink);
+      padding:4px 10px;border-radius:8px;
+      margin-left:auto;
     }
-    .timer.stopped{opacity:.7}
+    .timer.stopped{opacity:.5}
+    .icon-btn{
+      flex:none;
+      width:38px;height:38px;border-radius:10px;
+      display:grid;place-items:center;font-size:1.1rem;
+      background:#fff;border:1px solid var(--pink-line);
+      transition:transform .15s,background .15s;
+    }
+    .icon-btn:hover{background:var(--pink);transform:translateY(-1px)}
+    .icon-btn:active{transform:translateY(0)}
+    .icon-btn.off{opacity:.4}
 
-    @media (max-width:768px){
-      h1{font-size:1.8em}.stats{padding:10px}.stat-value{font-size:1.4em}.stat-label{font-size:.75em}
-      .column-title{font-size:1.1em;padding:8px}.character-main{font-size:1.5em}
-      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(50px,1fr));gap:6px}
-      .current-card{width:150px}
-      .current-card-row{width:100%;justify-content:space-between}
-      .btn-skip{padding:10px 18px;border-radius:20px}
-      button{padding:10px 20px;font-size:.9em}
-      .current-area{position:sticky;top:0;z-index:25;background:rgba(255,255,255,.95);padding:10px 0;margin:-10px 0 0}
+    /* ---------- Fila de stats + progreso ---------- */
+    .statbar{
+      flex:none;
+      background:var(--surface);
+      border:1px solid var(--pink-line);
+      border-radius:var(--radius);
+      padding:7px 12px;
+      display:flex;align-items:center;gap:14px;
     }
-    @media (max-width:480px){
-      .container{padding:15px} h1{font-size:1.5em}.subtitle{font-size:.85em}
-      .cards-grid{grid-template-columns:repeat(auto-fit,minmax(45px,1fr));gap:5px}
-      .character-main{font-size:1.3em}.game-area{gap:15px}
-      .current-card{width:130px}
-      .current-card-row{flex-wrap:wrap;justify-content:center}
-      .btn-skip{width:auto;min-width:140px}
-      .countdown{font-size:4rem}
+    .stat{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+    .stat b{font-size:1rem;font-weight:800;color:var(--red)}
+    .stat span{font-size:.72rem;color:var(--muted)}
+    .progress{
+      flex:1;height:7px;border-radius:99px;background:var(--pink);
+      overflow:hidden;min-width:40px;
+    }
+    .progress i{
+      display:block;height:100%;width:0%;border-radius:99px;
+      background:linear-gradient(90deg,var(--red-soft),var(--red));
+      transition:width .35s ease;
+    }
+
+    /* ---------- Kana objetivo (compacto) ---------- */
+    .target-row{
+      flex:none;
+      display:flex;align-items:center;justify-content:center;gap:12px;
+    }
+    .target-card{
+      width:clamp(76px,11.5dvh,116px);
+      aspect-ratio:1;
+      background:var(--surface);
+      border:3px solid var(--red);
+      border-radius:18px;
+      display:grid;place-items:center;
+      box-shadow:0 6px 18px rgba(195,20,50,.2);
+      transition:transform .2s,background .2s,border-color .2s;
+      position:relative;
+    }
+    .target-card:hover{transform:translateY(-3px)}
+    .target-card .kana{
+      font-size:clamp(2.4rem,7.5dvh,3.6rem);
+      font-weight:700;line-height:1;color:var(--dark);
+    }
+    .target-card.correct{
+      background:var(--green-bg);border-color:var(--green);
+      box-shadow:0 0 22px rgba(46,158,87,.4);
+    }
+    .target-card.correct .kana{color:#14532d}
+    .target-meta{
+      display:flex;flex-direction:column;gap:6px;align-items:flex-start;
+    }
+    .target-hint{
+      font-size:.72rem;color:var(--muted);max-width:150px;line-height:1.3;
+    }
+    .btn-skip{
+      display:inline-flex;align-items:center;gap:6px;
+      background:linear-gradient(135deg,#ff8a5c,#ff6b6b);
+      color:#fff;font-weight:700;font-size:.82rem;
+      padding:9px 15px;border-radius:99px;
+      box-shadow:0 4px 12px rgba(255,107,107,.35);
+      transition:transform .15s,opacity .15s;
+    }
+    .btn-skip:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-skip:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+
+    /* ---------- Panel de opciones: se come el espacio restante ---------- */
+    .options-panel{
+      flex:1 1 auto;
+      min-height:0;                    /* clave para que no desborde */
+      background:var(--surface);
+      border:1px solid var(--pink-line);
+      border-radius:var(--radius);
+      padding:8px;
+      display:flex;flex-direction:column;gap:6px;
+      box-shadow:0 2px 10px rgba(195,20,50,.07);
+    }
+    .panel-head{
+      flex:none;text-align:center;font-weight:800;font-size:.9rem;
+      color:var(--red);letter-spacing:1px;
+    }
+    .grid{
+      flex:1 1 auto;
+      min-height:0;
+      display:grid;
+      grid-template-columns:repeat(var(--cols,8),var(--cell,48px));
+      grid-auto-rows:var(--cell-h,var(--cell,48px));
+      gap:var(--cell-gap,6px);
+      justify-content:center;
+      align-content:center;
+      /* Holgura para que el hover (scale + translateY + sombra) no se recorte
+         contra el borde del grid. fitGrid() la descuenta del cálculo, así que
+         las cartas siguen cabiendo exactas. El "sin scroll" lo garantiza
+         body{overflow:hidden}, no este contenedor. */
+      padding:6px;
+    }
+    .kana-card{
+      width:100%;height:100%;
+      background:linear-gradient(180deg,#fff 0%,#fff7f8 100%);
+      border:2px solid var(--pink-line);
+      border-radius:10px;
+      display:grid;place-items:center;
+      font-weight:700;line-height:1;color:var(--dark);
+      font-size:var(--cell-font,1.4rem);
+      transition:transform .15s,box-shadow .15s,background .15s,border-color .15s;
+      user-select:none;
+    }
+    @media (hover:hover){
+      .kana-card:hover{
+        transform:translateY(-3px) scale(1.06);
+        border-color:var(--red);
+        box-shadow:0 8px 16px rgba(195,20,50,.28);
+        z-index:2;
+      }
+    }
+    .kana-card:active{transform:scale(.95)}
+    .kana-card.correct{
+      background:linear-gradient(135deg,#d9f2e2,#a9dfbd);
+      border-color:var(--green);color:#14532d;
+      transform:scale(1.1);box-shadow:0 0 20px rgba(46,158,87,.45);
+    }
+    .kana-card.wrong{
+      animation:shake .45s;border-color:#e53935;
+      background:#ffeceb;
+    }
+    @keyframes shake{
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-6px)}
+      40%{transform:translateX(6px)}
+      60%{transform:translateX(-4px)}
+      80%{transform:translateX(4px)}
+    }
+
+    /* ---------- Toast flotante (no ocupa layout) ---------- */
+    .toast{
+      position:absolute;left:50%;bottom:14px;transform:translate(-50%,12px);
+      background:rgba(36,11,54,.92);color:#fff;
+      padding:8px 18px;border-radius:99px;font-weight:700;font-size:.85rem;
+      opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+      z-index:50;white-space:nowrap;max-width:92%;
+    }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    .toast.ok{background:rgba(46,158,87,.95)}
+    .toast.bad{background:rgba(195,20,50,.95)}
+
+    /* ---------- Pantallas superpuestas ---------- */
+    .screen{
+      position:absolute;inset:0;z-index:100;
+      background:rgba(255,246,247,.97);
+      backdrop-filter:blur(6px);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:16px;padding:24px;text-align:center;
+    }
+    .screen[hidden]{display:none}
+    .screen h1{
+      font-size:clamp(1.7rem,5.5dvh,2.6rem);color:var(--red);font-weight:900;line-height:1.1;
+    }
+    .screen p.lead{font-size:.9rem;color:var(--muted);max-width:340px;line-height:1.5}
+
+    .modes{display:flex;gap:8px;background:var(--pink);padding:5px;border-radius:99px}
+    .mode-opt{
+      padding:9px 16px;border-radius:99px;font-weight:700;font-size:.9rem;
+      color:var(--dark);transition:background .2s,color .2s;
+    }
+    .mode-opt[aria-pressed="true"]{background:var(--red);color:#fff;box-shadow:0 3px 10px rgba(195,20,50,.35)}
+
+    .btn-primary{
+      background:linear-gradient(135deg,var(--red-soft),var(--red));
+      color:#fff;font-weight:800;font-size:1.05rem;
+      padding:14px 44px;border-radius:99px;
+      box-shadow:0 8px 22px rgba(195,20,50,.35);
+      transition:transform .15s;
+    }
+    .btn-primary:hover{transform:translateY(-2px)}
+    .btn-ghost{
+      color:var(--red);font-weight:700;font-size:.88rem;
+      padding:10px 20px;border-radius:99px;border:2px solid var(--pink-line);
+      transition:background .2s;
+    }
+    .btn-ghost:hover{background:var(--pink)}
+
+    /* ---------- Fase de trazado ---------- */
+    .trace-screen{gap:10px;justify-content:center}
+    .trace-head{text-align:center}
+    .trace-title{font-size:1.15rem;font-weight:800;color:var(--dark)}
+    .trace-title span{
+      color:var(--red);font-size:1.6rem;vertical-align:-3px;margin-left:4px;
+    }
+    .trace-sub{font-size:.78rem;color:var(--muted);margin-top:2px}
+    #traceCanvas{
+      width:min(74vw,62dvh,400px);
+      aspect-ratio:1;
+      background:#fff;
+      border:2px solid var(--pink-line);
+      border-radius:16px;
+      box-shadow:0 6px 20px rgba(195,20,50,.14);
+      touch-action:none;            /* el dedo dibuja, no hace scroll */
+      cursor:crosshair;
+    }
+    #traceCanvas.ok{border-color:var(--green);box-shadow:0 0 24px rgba(46,158,87,.35)}
+    #traceCanvas.bad{animation:shake .4s;border-color:#e53935}
+    .trace-pair{
+      display:flex;align-items:center;gap:10px;
+      font-size:1.5rem;font-weight:700;color:var(--pink-line);line-height:1;
+    }
+    .trace-pair b{color:var(--red)}
+    .trace-pair .done{color:var(--green)}
+    .trace-actions{display:flex;gap:8px}
+    .trace-actions .btn-ghost{padding:8px 16px;font-size:.8rem}
+
+    @media (max-height:620px){
+      .trace-title{font-size:1rem}
+      .trace-title span{font-size:1.35rem}
+      .trace-sub,.trace-pair{font-size:.72rem}
+      .trace-pair{font-size:1.2rem}
+      .trace-screen{gap:7px}
+    }
+
+    .credits{
+      font-size:.63rem;color:var(--muted);opacity:.85;max-width:330px;line-height:1.45;
+    }
+    .credits a{color:var(--muted)}
+
+    .voice-row{
+      display:flex;align-items:center;gap:6px;max-width:94%;
+      background:#fff;border:1px solid var(--pink-line);
+      border-radius:99px;padding:4px 5px 4px 14px;
+    }
+    .voice-row select{
+      border:none;background:none;font-family:inherit;font-size:.8rem;font-weight:600;
+      color:var(--dark);max-width:190px;padding:4px 2px;cursor:pointer;outline:none;
+    }
+    .voice-row select:disabled{color:var(--muted);cursor:default}
+    .voice-row .icon-btn{width:30px;height:30px;font-size:.75rem}
+
+    .kbd-hints{
+      display:flex;gap:14px;flex-wrap:wrap;justify-content:center;
+      font-size:.72rem;color:var(--muted);
+    }
+    .kbd-hints kbd{
+      background:#fff;border:1px solid var(--pink-line);border-bottom-width:2px;
+      border-radius:5px;padding:2px 6px;font-family:inherit;font-size:.7rem;font-weight:700;
+    }
+
+    /* Resultados */
+    .result-grid{
+      display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:10px;
+      width:100%;max-width:340px;
+    }
+    .result-cell{
+      background:#fff;border:1px solid var(--pink-line);border-radius:12px;padding:10px 6px;
+    }
+    .result-cell b{display:block;font-size:1.25rem;color:var(--red);font-weight:800}
+    .result-cell span{font-size:.68rem;color:var(--muted)}
+    .record{font-size:.8rem;color:var(--dark);font-weight:700}
+
+    /* Cuenta regresiva */
+    .countdown-screen{background:rgba(36,11,54,.75);backdrop-filter:blur(3px)}
+    .countdown{
+      color:#fff;font-weight:900;font-size:clamp(4rem,18dvh,8rem);
+      text-shadow:0 8px 30px rgba(0,0,0,.5);line-height:1;
+    }
+    .countdown.pop{animation:pop .55s ease-out}
+    @keyframes pop{
+      0%{transform:scale(.5);opacity:.1}
+      60%{transform:scale(1.12);opacity:1}
+      100%{transform:scale(1)}
+    }
+
+    /* ---------- Móvil ---------- */
+    @media (max-width:560px){
+      .app{padding:calc(6px + env(safe-area-inset-top)) 7px calc(6px + env(safe-area-inset-bottom));gap:6px}
+      .brand{font-size:.9rem}
+      .timer{font-size:.95rem;padding:3px 8px}
+      .icon-btn{width:34px;height:34px;font-size:1rem}
+      .statbar{padding:6px 9px;gap:9px}
+      .stat b{font-size:.9rem}
+      .stat span{font-size:.65rem}
+      .target-hint{display:none}
+      .btn-skip{font-size:.78rem;padding:8px 13px}
+      .panel-head{font-size:.8rem}
+    }
+    /* Pantallas muy bajas (móvil apaisado): comprime aún más */
+    @media (max-height:430px){
+      .target-hint,.panel-head{display:none}
+      .target-card{width:clamp(60px,20dvh,88px)}
+      .app{gap:5px}
+      .topbar{padding:5px 10px}
+      .statbar{padding:5px 12px}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      *{animation-duration:.01ms !important;transition-duration:.01ms !important}
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
+  <div class="app" id="app">
+
+    <!-- ===== Barra superior ===== -->
+    <header class="topbar">
+      <div class="brand">🌸 かな Match</div>
+      <div class="timer stopped" id="timer" role="timer" aria-label="Tiempo">00:00.00</div>
+      <button class="icon-btn" id="soundBtn" title="Sonido (S)" aria-label="Activar o desactivar sonido">🔊</button>
+      <button class="icon-btn" id="menuBtn" title="Menú (Esc)" aria-label="Volver al menú">☰</button>
+    </header>
+
+    <!-- ===== Stats + progreso ===== -->
+    <div class="statbar">
+      <div class="stat"><b id="score">0</b><span>pts</span></div>
+      <div class="stat"><b id="matches">0/46</b><span>aciertos</span></div>
+      <div class="stat"><b id="accuracy">—</b><span>precisión</span></div>
+      <div class="progress"><i id="progressBar"></i></div>
+    </div>
+
+    <!-- ===== Kana objetivo ===== -->
+    <div class="target-row">
+      <button class="target-card" id="targetCard" aria-live="polite">
+        <span class="kana" id="targetKana" lang="ja">—</span>
+      </button>
+      <div class="target-meta">
+        <button class="btn-skip" id="skipBtn" disabled>⟳ Otro kana</button>
+        <p class="target-hint">Toca el kana para escucharlo otra vez.</p>
+      </div>
+    </div>
+
+    <!-- ===== Opciones ===== -->
+    <section class="options-panel" id="optionsPanel">
+      <div class="panel-head" id="optionsTitle" lang="ja">カタカナ</div>
+      <div class="grid" id="optionsGrid" role="group" aria-label="Opciones"></div>
+    </section>
+
+    <!-- ===== Toast ===== -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- ===== Pantalla: trazado (modo caligrafía) ===== -->
+    <div class="screen trace-screen" id="traceScreen" hidden>
+      <div class="trace-head">
+        <div class="trace-title">Escribe <span id="traceChar" lang="ja">あ</span></div>
+        <div class="trace-sub" id="traceStep">trazo 1 de 3</div>
+      </div>
+      <canvas id="traceCanvas" aria-label="Zona de escritura"></canvas>
+      <div class="trace-pair" id="tracePair" aria-hidden="true"></div>
+      <div class="trace-actions">
+        <button class="btn-ghost" id="showStrokeBtn">👁️ Ver cómo</button>
+        <button class="btn-ghost" id="skipStrokeBtn">Saltar</button>
+      </div>
+    </div>
+
+    <!-- ===== Pantalla: menú ===== -->
+    <div class="screen" id="menuScreen">
       <h1>🌸 かな Match 🌸</h1>
-      <p class="subtitle">ひらがな ⇄ カタカナ | Toca para escuchar</p>
-      <div id="timer" class="timer stopped">00:00.00</div>
+      <p class="lead" id="menuLead">Aparece un kana arriba. Busca su pareja abajo lo más rápido que puedas.</p>
+      <div class="modes" role="group" aria-label="Versión del juego">
+        <button class="mode-opt" id="varClassic" aria-pressed="true">⚡ Clásico</button>
+        <button class="mode-opt" id="varTrace" aria-pressed="false">✍️ Caligrafía</button>
+      </div>
+      <div class="modes" role="group" aria-label="Modo de juego">
+        <button class="mode-opt" id="modeHira" aria-pressed="true">あ → ア</button>
+        <button class="mode-opt" id="modeKata" aria-pressed="false">ア → あ</button>
+      </div>
+      <button class="btn-primary" id="startBtn">Iniciar</button>
+      <p class="record" id="menuRecord"></p>
+      <div class="voice-row" id="voiceRow">
+        <span aria-hidden="true">🎙️</span>
+        <select id="voiceSelect" aria-label="Voz japonesa"></select>
+        <button class="icon-btn" id="testVoiceBtn" title="Probar voz" aria-label="Probar voz">▶</button>
+      </div>
+      <div class="kbd-hints">
+        <span><kbd>Esc</kbd> menú</span>
+        <span><kbd>Espacio</kbd> otro kana</span>
+        <span><kbd>R</kbd> repetir audio</span>
+        <span><kbd>S</kbd> sonido</span>
+      </div>
+      <p class="credits">
+        Trazos de <a href="https://github.com/zhengkyl/strokesvg" target="_blank" rel="noopener">strokesvg</a>,
+        derivados de la fuente Klee One · <a href="https://scripts.sil.org/OFL" target="_blank" rel="noopener">SIL OFL 1.1</a>
+      </p>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value" id="score">0</div>
-        <div class="stat-label">Puntos</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="matches">0</div>
-        <div class="stat-label">Aciertos</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="attempts">0</div>
-        <div class="stat-label">Intentos</div>
-      </div>
+    <!-- ===== Pantalla: cuenta regresiva ===== -->
+    <div class="screen countdown-screen" id="countdownScreen" hidden>
+      <div class="countdown" id="countdownLabel">3</div>
     </div>
 
-    <div class="game-area">
-      <div class="current-area">
-        <div class="column single">
-          <div class="column-title" id="target-column-title">ひらがな</div>
-          <div class="current-card-row">
-            <div id="current-target-card" class="current-card placeholder">
-              <span class="placeholder-text">Presiona "Iniciar"</span>
-            </div>
-            <button id="skipBtn" class="btn-skip" disabled>Cambiar kana</button>
-          </div>
-        </div>
+    <!-- ===== Pantalla: resultados ===== -->
+    <div class="screen" id="resultScreen" hidden>
+      <h1 id="resultTitle">🎉 ¡Completado!</h1>
+      <div class="result-grid">
+        <div class="result-cell"><b id="rTime">—</b><span>tiempo</span></div>
+        <div class="result-cell"><b id="rScore">0</b><span>puntos</span></div>
+        <div class="result-cell"><b id="rAcc">—</b><span>precisión</span></div>
       </div>
-      <div class="column options">
-        <div class="column-title" id="options-column-title">カタカナ</div>
-        <div class="cards-grid" id="options-column"></div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <!-- Cambiado a "Iniciar" -->
-      <button id="startBtn" class="btn-all" onclick="startAllMode()">Iniciar</button>
-      <button id="modeToggleBtn" class="btn-mode" onclick="toggleMode()" title="Cambiar entre あ→ア y ア→あ">🎮 あ→ア</button>
-      <button class="btn-reset" onclick="resetAll()">Reiniciar</button>
-    </div>
-
-    <div class="message" id="message"></div>
-
-    <!-- Overlay de cuenta regresiva -->
-    <div id="overlay" class="overlay">
-      <div id="countdown" class="countdown">3</div>
+      <p class="record" id="resultRecord"></p>
+      <button class="btn-primary" id="againBtn">Jugar de nuevo</button>
+      <button class="btn-ghost" id="backBtn">Volver al menú</button>
     </div>
   </div>
 
+  <script src="kana-strokes.js"></script>
   <script>
-    // Sakura
-    for (let i = 0; i < 15; i++) {
-      const sakura = document.createElement('div');
-      sakura.className = 'sakura';
-      sakura.style.left = Math.random() * 100 + '%';
-      sakura.style.animationDuration = (Math.random() * 3 + 5) + 's';
-      sakura.style.animationDelay = Math.random() * 5 + 's';
-      sakura.style.opacity = Math.random() * 0.5 + 0.3;
-      document.body.appendChild(sakura);
-    }
+  (() => {
+    'use strict';
 
-    // Datos de kana
-    const allKanaData = [
-      { hiragana:'あ', katakana:'ア', romaji:'a' }, { hiragana:'い', katakana:'イ', romaji:'i' },
-      { hiragana:'う', katakana:'ウ', romaji:'u' }, { hiragana:'え', katakana:'エ', romaji:'e' },
-      { hiragana:'お', katakana:'オ', romaji:'o' }, { hiragana:'か', katakana:'カ', romaji:'ka' },
-      { hiragana:'き', katakana:'キ', romaji:'ki' }, { hiragana:'く', katakana:'ク', romaji:'ku' },
-      { hiragana:'け', katakana:'ケ', romaji:'ke' }, { hiragana:'こ', katakana:'コ', romaji:'ko' },
-      { hiragana:'さ', katakana:'サ', romaji:'sa' }, { hiragana:'し', katakana:'シ', romaji:'shi' },
-      { hiragana:'す', katakana:'ス', romaji:'su' }, { hiragana:'せ', katakana:'セ', romaji:'se' },
-      { hiragana:'そ', katakana:'ソ', romaji:'so' }, { hiragana:'た', katakana:'タ', romaji:'ta' },
-      { hiragana:'ち', katakana:'チ', romaji:'chi' }, { hiragana:'つ', katakana:'ツ', romaji:'tsu' },
-      { hiragana:'て', katakana:'テ', romaji:'te' }, { hiragana:'と', katakana:'ト', romaji:'to' },
-      { hiragana:'な', katakana:'ナ', romaji:'na' }, { hiragana:'に', katakana:'ニ', romaji:'ni' },
-      { hiragana:'ぬ', katakana:'ヌ', romaji:'nu' }, { hiragana:'ね', katakana:'ネ', romaji:'ne' },
-      { hiragana:'の', katakana:'ノ', romaji:'no' }, { hiragana:'は', katakana:'ハ', romaji:'ha' },
-      { hiragana:'ひ', katakana:'ヒ', romaji:'hi' }, { hiragana:'ふ', katakana:'フ', romaji:'fu' },
-      { hiragana:'へ', katakana:'ヘ', romaji:'he' }, { hiragana:'ほ', katakana:'ホ', romaji:'ho' },
-      { hiragana:'ま', katakana:'マ', romaji:'ma' }, { hiragana:'み', katakana:'ミ', romaji:'mi' },
-      { hiragana:'む', katakana:'ム', romaji:'mu' }, { hiragana:'め', katakana:'メ', romaji:'me' },
-      { hiragana:'も', katakana:'モ', romaji:'mo' }, { hiragana:'や', katakana:'ヤ', romaji:'ya' },
-      { hiragana:'ゆ', katakana:'ユ', romaji:'yu' }, { hiragana:'よ', katakana:'ヨ', romaji:'yo' },
-      { hiragana:'ら', katakana:'ラ', romaji:'ra' }, { hiragana:'り', katakana:'リ', romaji:'ri' },
-      { hiragana:'る', katakana:'ル', romaji:'ru' }, { hiragana:'れ', katakana:'レ', romaji:'re' },
-      { hiragana:'ろ', katakana:'ロ', romaji:'ro' }, { hiragana:'わ', katakana:'ワ', romaji:'wa' },
-      { hiragana:'を', katakana:'ヲ', romaji:'wo' }, { hiragana:'ん', katakana:'ン', romaji:'n' }
-    ];
+    // ===================== Datos =====================
+    const KANA = [
+      ['あ','ア','a'],  ['い','イ','i'],  ['う','ウ','u'],  ['え','エ','e'],  ['お','オ','o'],
+      ['か','カ','ka'], ['き','キ','ki'], ['く','ク','ku'], ['け','ケ','ke'], ['こ','コ','ko'],
+      ['さ','サ','sa'], ['し','シ','shi'],['す','ス','su'], ['せ','セ','se'], ['そ','ソ','so'],
+      ['た','タ','ta'], ['ち','チ','chi'],['つ','ツ','tsu'],['て','テ','te'], ['と','ト','to'],
+      ['な','ナ','na'], ['に','ニ','ni'], ['ぬ','ヌ','nu'], ['ね','ネ','ne'], ['の','ノ','no'],
+      ['は','ハ','ha'], ['ひ','ヒ','hi'], ['ふ','フ','fu'], ['へ','ヘ','he'], ['ほ','ホ','ho'],
+      ['ま','マ','ma'], ['み','ミ','mi'], ['む','ム','mu'], ['め','メ','me'], ['も','モ','mo'],
+      ['や','ヤ','ya'], ['ゆ','ユ','yu'], ['よ','ヨ','yo'],
+      ['ら','ラ','ra'], ['り','リ','ri'], ['る','ル','ru'], ['れ','レ','re'], ['ろ','ロ','ro'],
+      ['わ','ワ','wa'], ['を','ヲ','wo'], ['ん','ン','n']
+    ].map(([hiragana, katakana, romaji]) => ({ hiragana, katakana, romaji }));
 
-    const MODE_CONFIG = {
-      'hiragana-to-katakana': {
-        targetTitle: 'ひらがな',
-        optionsTitle: 'カタカナ',
-        startMessage: '¡Encuentra el katakana que corresponde!',
-        cycleMessage: 'Kana cambiado. ¡Encuentra su katakana!',
-        toggleLabel: '🎮 あ→ア'
-      },
-      'katakana-to-hiragana': {
-        targetTitle: 'カタカナ',
-        optionsTitle: 'ひらがな',
-        startMessage: '¡Encuentra el hiragana correcto!',
-        cycleMessage: 'Kana cambiado. ¡Encuentra su hiragana!',
-        toggleLabel: '🎮 ア→あ'
-      }
+    const MODES = {
+      h2k:{ targetKey:'hiragana', optionKey:'katakana', optionsTitle:'カタカナ', label:'あ → ア' },
+      k2h:{ targetKey:'katakana', optionKey:'hiragana', optionsTitle:'ひらがな', label:'ア → あ' }
     };
 
-    // Estado
-    let gameState = {
-      mode: 'hiragana-to-katakana',
-      currentPair: null,
-      remainingPairs: [],
-      optionOrder: [],
-      matchedPairs: [],
-      totalPairs: allKanaData.length,
-      score: 0,
-      matches: 0,
-      attempts: 0,
-      running: false,
-      hasStarted: false
+    const REVEAL_MS = 380;   // ventana de feedback al acertar
+    const STORE_KEY = 'kanaMatch.records.v1';
+    const VOICE_KEY = 'kanaMatch.voice.v1';
+    // Kana que peor pronuncian los sintetizadores: sirven para comparar voces.
+    const VOICE_TEST = 'ハ、ヘ、ン、ツ、シ、フ';
+
+    // ===================== Elementos =====================
+    const $ = id => document.getElementById(id);
+    const el = {
+      app:$('app'), timer:$('timer'), soundBtn:$('soundBtn'), menuBtn:$('menuBtn'),
+      score:$('score'), matches:$('matches'), accuracy:$('accuracy'), progressBar:$('progressBar'),
+      targetCard:$('targetCard'), targetKana:$('targetKana'), skipBtn:$('skipBtn'),
+      optionsPanel:$('optionsPanel'), optionsTitle:$('optionsTitle'), optionsGrid:$('optionsGrid'),
+      toast:$('toast'),
+      menuScreen:$('menuScreen'), modeHira:$('modeHira'), modeKata:$('modeKata'),
+      menuLead:$('menuLead'), varClassic:$('varClassic'), varTrace:$('varTrace'),
+      traceScreen:$('traceScreen'), traceChar:$('traceChar'), traceStep:$('traceStep'),
+      traceCanvas:$('traceCanvas'), tracePair:$('tracePair'),
+      showStrokeBtn:$('showStrokeBtn'), skipStrokeBtn:$('skipStrokeBtn'),
+      startBtn:$('startBtn'), menuRecord:$('menuRecord'),
+      voiceRow:$('voiceRow'), voiceSelect:$('voiceSelect'), testVoiceBtn:$('testVoiceBtn'),
+      countdownScreen:$('countdownScreen'), countdownLabel:$('countdownLabel'),
+      resultScreen:$('resultScreen'), resultTitle:$('resultTitle'),
+      rTime:$('rTime'), rScore:$('rScore'), rAcc:$('rAcc'), resultRecord:$('resultRecord'),
+      againBtn:$('againBtn'), backBtn:$('backBtn')
     };
 
-    // Timer
-    let timerId = null;
-    let startTime = 0;
+    // ===================== Estado =====================
+    const state = {
+      mode:'h2k',
+      variant:'classic',   // 'classic' | 'trace'
+      queue:[],          // pares pendientes; el actual es queue[0]
+      options:[],        // pares aún visibles como opción
+      score:0, matches:0, attempts:0,
+      total:KANA.length,
+      running:false,     // hay partida activa y acepta input
+      locked:false,      // FIX: bloquea input durante la animación de acierto
+      soundOn:true,
+      elapsed:0
+    };
 
-    function formatTime(ms){
-      const minutes = Math.floor(ms/60000);
-      const seconds = Math.floor((ms%60000)/1000);
-      const centis  = Math.floor((ms%1000)/10);
-      return `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}.${String(centis).padStart(2,'0')}`;
-    }
+    const current = () => state.queue[0] || null;
+    const targetChar = pair => pair ? pair[MODES[state.mode].targetKey] : '';
+    const optionChar = pair => pair ? pair[MODES[state.mode].optionKey] : '';
+
+    // ===================== Timer =====================
+    let rafId = null, t0 = 0;
+
+    const formatTime = ms => {
+      const m = Math.floor(ms/60000);
+      const s = Math.floor((ms%60000)/1000);
+      const c = Math.floor((ms%1000)/10);
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(c).padStart(2,'0')}`;
+    };
 
     function startTimer(){
-      startTime = performance.now();
-      const timerEl = document.getElementById('timer');
-      timerEl.classList.remove('stopped');
-      gameState.running = true;
-
-      timerId = requestAnimationFrame(function tick(now){
-        const elapsed = now - startTime;
-        timerEl.textContent = formatTime(elapsed);
-        if(gameState.running){ timerId = requestAnimationFrame(tick); }
-      });
+      stopTimer();
+      t0 = performance.now();
+      state.elapsed = 0;
+      el.timer.classList.remove('stopped');
+      const tick = now => {
+        state.elapsed = now - t0;
+        el.timer.textContent = formatTime(state.elapsed);
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
     }
 
     function stopTimer(){
-      gameState.running = false;
-      const timerEl = document.getElementById('timer');
-      timerEl.classList.add('stopped');
-      if(timerId){ cancelAnimationFrame(timerId); timerId = null; }
+      if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+      el.timer.classList.add('stopped');
     }
 
-    // ======= Voz: usar OTRA voz japonesa + retardo =======
-    let cachedVoices = [];
-    let speakTimeout = null;
-    const SPEAK_DELAY_MS = 500; // retardo antes de pronunciar
-    let countdownTimeouts = [];
-    function clearCountdownTimers(){
-      countdownTimeouts.forEach(t => clearTimeout(t));
-      countdownTimeouts = [];
+    // En caligrafía el cronómetro se detiene mientras escribes: mide reconocer
+    // los kana, no lo rápido que muevas el dedo. Al reanudar se descuenta la
+    // pausa entera para que el tiempo siga siendo continuo.
+    let pausedAt = 0;
+    function pauseTimer(){
+      if(!rafId) return;
+      pausedAt = performance.now();
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      el.timer.classList.add('stopped');
+    }
+    function resumeTimer(){
+      if(rafId || !pausedAt) return;
+      t0 += performance.now() - pausedAt;
+      pausedAt = 0;
+      el.timer.classList.remove('stopped');
+      const tick = now => {
+        state.elapsed = now - t0;
+        el.timer.textContent = formatTime(state.elapsed);
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    }
+
+    // ===================== Audio =====================
+    let voices = [], speakTimer = null, audioCtx = null;
+    let chosenVoiceURI = null;
+    try{ chosenVoiceURI = localStorage.getItem(VOICE_KEY); }catch(e){}
+
+    // Los motores TTS leen は y へ SUELTOS como partículas ("wa" y "e"),
+    // no como sílabas. En katakana esa ambigüedad no existe: el sonido es
+    // idéntico pero se pronuncia siempre "ha" y "he". Por eso al sintetizador
+    // le mandamos siempre katakana, se muestre lo que se muestre en pantalla.
+    const SPEECH_MAP = {};
+    KANA.forEach(p => { SPEECH_MAP[p.hiragana] = p.katakana; SPEECH_MAP[p.katakana] = p.katakana; });
+    const speechText = text => [...text].map(ch => SPEECH_MAP[ch] || ch).join('');
+
+    // Voces japonesas conocidas, de mejor a peor para kana sueltos.
+    const PREFERRED = ['ayumi','haruka','nanami','sayaka','kyoko','otoya','ichiro','keita','google'];
+
+    const jpVoices = () =>
+      voices.filter(v => v.lang && v.lang.toLowerCase().replace('_','-').startsWith('ja'));
+
+    function scoreVoice(v){
+      let s = 0;
+      // Una voz local responde al instante; las "en línea" bajan el audio de
+      // un servidor y por eso se sienten lentas.
+      if(v.localService) s += 100;
+      const i = PREFERRED.findIndex(p => v.name.toLowerCase().includes(p));
+      if(i >= 0) s += PREFERRED.length - i;
+      if(v.default) s += 1;
+      return s;
+    }
+
+    function pickVoice(){
+      const list = jpVoices();
+      if(!list.length) return null;
+      if(chosenVoiceURI){
+        const chosen = list.find(v => v.voiceURI === chosenVoiceURI);
+        if(chosen) return chosen;
+      }
+      return list.slice().sort((a,b) => scoreVoice(b) - scoreVoice(a))[0];
     }
 
     function refreshVoices(){
       if(!('speechSynthesis' in window)) return;
-      cachedVoices = speechSynthesis.getVoices() || [];
+      voices = speechSynthesis.getVoices() || [];
+      populateVoiceSelect();
     }
+
+    function populateVoiceSelect(){
+      if(!el.voiceSelect) return;
+      const list = jpVoices();
+      el.voiceSelect.innerHTML = '';
+
+      if(!list.length){
+        const o = document.createElement('option');
+        o.textContent = 'Sin voces japonesas';
+        el.voiceSelect.appendChild(o);
+        el.voiceSelect.disabled = true;
+        el.voiceRow.title = 'Windows: Configuración → Hora e idioma → Voz → Agregar voces → 日本語';
+        return;
+      }
+
+      el.voiceSelect.disabled = false;
+      const active = pickVoice();
+      list.slice().sort((a,b) => scoreVoice(b) - scoreVoice(a)).forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.voiceURI;
+        o.textContent = v.name.replace(/^(Microsoft|Google)\s+/i,'')
+                      + (v.localService ? ' · rápida' : ' · en línea');
+        if(active && v.voiceURI === active.voiceURI) o.selected = true;
+        el.voiceSelect.appendChild(o);
+      });
+    }
+
     if('speechSynthesis' in window){
-      speechSynthesis.onvoiceschanged = refreshVoices;
-      refreshVoices();
+      speechSynthesis.addEventListener('voiceschanged', refreshVoices);
     }
 
-    function pickAlternateJapaneseVoice(){
-      // Filtra voces japonesas
-      const jpVoices = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('ja'));
-      if (jpVoices.length === 0) return null;
-      // Si hay más de una, elige la última (distinta a la primera "típica")
-      if (jpVoices.length > 1) return jpVoices[jpVoices.length - 1];
-      // Si solo hay una, usa esa (no hay alternativa real)
-      return jpVoices[0];
-    }
-
-    function speakKana(kanaChar){
-      if(!('speechSynthesis' in window)) return;
-
-      // Cancela cualquier cola/retardo previo
-      if (speakTimeout) { clearTimeout(speakTimeout); speakTimeout = null; }
+    function speak(text, delay = 0){
+      if(!state.soundOn || !text || !('speechSynthesis' in window)) return;
+      if(speakTimer){ clearTimeout(speakTimer); speakTimer = null; }
       speechSynthesis.cancel();
-
-      speakTimeout = setTimeout(()=>{
-        const utter = new SpeechSynthesisUtterance(kanaChar);
-        utter.lang = 'ja-JP';
-        utter.rate = 0.9;
-        utter.pitch = 1.0;
-        utter.volume = 1.0;
-
-        const alt = pickAlternateJapaneseVoice();
-        if (alt) utter.voice = alt;
-
-        speechSynthesis.speak(utter);
-      }, SPEAK_DELAY_MS);
-    }
-    // ================================================
-
-    function announceCurrentTarget(force = false){
-      if(!gameState.currentPair) return;
-      if(!force && !gameState.running) return;
-      speakKana(getTargetChar(gameState.currentPair));
+      // Chrome ignora un speak() lanzado en el mismo tick que cancel(),
+      // así que siempre salta al siguiente tick (delay 0 incluido).
+      speakTimer = setTimeout(() => {
+        speakTimer = null;
+        const u = new SpeechSynthesisUtterance(speechText(text));
+        u.lang = 'ja-JP';
+        u.rate = 1;
+        const v = pickVoice();
+        if(v) u.voice = v;
+        speechSynthesis.speak(u);
+      }, delay);
     }
 
-    // Sonido de acierto
-    let audioCtx = null;
-    function getAudioContext(){
+    function cancelSpeech(){
+      if(speakTimer){ clearTimeout(speakTimer); speakTimer = null; }
+      if('speechSynthesis' in window) speechSynthesis.cancel();
+    }
+
+    function getCtx(){
       if(!audioCtx){
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if(Ctx){ audioCtx = new Ctx(); }
+        const C = window.AudioContext || window.webkitAudioContext;
+        if(C) audioCtx = new C();
       }
       return audioCtx;
     }
 
-    function playSuccessTone(){
-      const ctx = getAudioContext();
+    function beep(freq, dur = 0.18, type = 'triangle'){
+      if(!state.soundOn) return;
+      const ctx = getCtx();
       if(!ctx) return;
-      if(ctx.state === 'suspended'){ ctx.resume(); }
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(660, ctx.currentTime);
-
+      if(ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
       gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
       osc.connect(gain).connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.4);
+      osc.stop(ctx.currentTime + dur + 0.05);
     }
 
-    // Util
-    function shuffle(array){
-      const a = [...array];
-      for(let i=a.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [a[i],a[j]]=[a[j],a[i]];
+    // FIX: iOS/Safari bloquean speech fuera de un gesto. Se desbloquea en el click de Iniciar.
+    function unlockAudio(){
+      const ctx = getCtx();
+      if(ctx && ctx.state === 'suspended') ctx.resume();
+      if(!('speechSynthesis' in window)) return;
+      try{
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        speechSynthesis.speak(u);
+      }catch(e){ /* sin voz disponible, el juego sigue funcionando */ }
+    }
+
+    // ===================== Utilidades =====================
+    const shuffle = arr => {
+      const a = [...arr];
+      for(let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
       }
       return a;
+    };
+
+    let toastTimer = null;
+    function toast(text, kind = ''){
+      el.toast.textContent = text;
+      el.toast.className = 'toast show ' + kind;
+      if(toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.toast.className = 'toast ' + kind; }, 1400);
     }
 
-    // Render
-    function getTargetChar(kana){
-      return gameState.mode === 'hiragana-to-katakana' ? kana.hiragana : kana.katakana;
+    // ===================== Records =====================
+    function loadRecords(){
+      try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+      catch(e){ return {}; }
+    }
+    // Los tiempos de clásico y caligrafía no son comparables: récord por separado.
+    const recordKey = () => `${state.variant}:${state.mode}`;
+
+    function saveRecord(ms){
+      const r = loadRecords();
+      const k = recordKey();
+      if(r[k] == null || ms < r[k]){
+        r[k] = ms;
+        try{ localStorage.setItem(STORE_KEY, JSON.stringify(r)); }catch(e){}
+        return true;
+      }
+      return false;
+    }
+    function showMenuRecord(){
+      const best = loadRecords()[recordKey()];
+      const v = state.variant === 'trace' ? 'Caligrafía' : 'Clásico';
+      el.menuRecord.textContent = best != null
+        ? `🏅 Mejor tiempo · ${v} ${MODES[state.mode].label}: ${formatTime(best)}`
+        : '';
     }
 
-    function getOptionChar(kana){
-      return gameState.mode === 'hiragana-to-katakana' ? kana.katakana : kana.hiragana;
-    }
+    // ===================== Ajuste del grid (cero scroll) =====================
+    // Calcula cuántas columnas hacen la carta más grande posible sin desbordar.
+    function fitGrid(){
+      const n = el.optionsGrid.childElementCount;
+      if(!n) return;
+      // clientWidth/Height incluyen el padding, hay que restarlo o las cartas
+      // se calcularían más grandes de lo que cabe.
+      const cs = getComputedStyle(el.optionsGrid);
+      const W = el.optionsGrid.clientWidth
+              - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const H = el.optionsGrid.clientHeight
+              - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      if(W <= 0 || H <= 0) return;
 
-    function renderCurrentTarget(){
-      const card = document.getElementById('current-target-card');
-      const skipBtn = document.getElementById('skipBtn');
-      const config = MODE_CONFIG[gameState.mode];
-      document.getElementById('target-column-title').textContent = config.targetTitle;
+      const gap = W < 420 ? 4 : 6;
+      let bestCols = 1, bestSide = 0;
 
-      if(gameState.currentPair){
-        card.classList.remove('placeholder','correct');
-        card.innerHTML = `<div class="character-main">${getTargetChar(gameState.currentPair)}</div>`;
-        card.onclick = ()=>{
-          speakKana(getTargetChar(gameState.currentPair));
-        };
-      }else{
-        card.classList.add('placeholder');
-        card.classList.remove('correct');
-        const text = gameState.hasStarted ? '¡Kana completados! 🎉' : 'Presiona "Iniciar"';
-        card.innerHTML = `<span class="placeholder-text">${text}</span>`;
-        card.onclick = null;
+      // 1) Elige el reparto que da la carta cuadrada más grande posible.
+      for(let cols = 1; cols <= n; cols++){
+        const rows = Math.ceil(n / cols);
+        const side = Math.min(
+          (W - gap * (cols - 1)) / cols,
+          (H - gap * (rows - 1)) / rows
+        );
+        if(side > bestSide){ bestSide = side; bestCols = cols; }
       }
 
-      skipBtn.disabled = !gameState.currentPair || gameState.remainingPairs.length <= 1;
+      // 2) Estira las filas para aprovechar el alto sobrante (área de toque
+      //    más grande en móvil), sin pasar de 1.35:1 para que no se deformen.
+      const rows = Math.ceil(n / bestCols);
+      const w = Math.max(22, Math.floor(bestSide));
+      const hFill = (H - gap * (rows - 1)) / rows;
+      const h = Math.max(w, Math.min(Math.floor(hFill), Math.round(w * 1.35)));
+
+      el.optionsGrid.style.setProperty('--cols', bestCols);
+      el.optionsGrid.style.setProperty('--cell', w + 'px');
+      el.optionsGrid.style.setProperty('--cell-h', h + 'px');
+      el.optionsGrid.style.setProperty('--cell-gap', gap + 'px');
+      el.optionsGrid.style.setProperty('--cell-font', Math.max(11, Math.round(Math.min(w, h) * 0.55)) + 'px');
     }
 
-    function renderOptions(list){
-      const column = document.getElementById('options-column');
-      const config = MODE_CONFIG[gameState.mode];
-      document.getElementById('options-column-title').textContent = config.optionsTitle;
-      column.innerHTML = '';
+    const scheduleFit = () => requestAnimationFrame(fitGrid);
+    if('ResizeObserver' in window){
+      new ResizeObserver(scheduleFit).observe(el.optionsPanel);
+    }
+    window.addEventListener('resize', scheduleFit);
+    window.addEventListener('orientationchange', () => setTimeout(fitGrid, 250));
 
-      list.forEach(kana=>{
-        const card = document.createElement('div');
-        card.className = 'character-card';
-        card.innerHTML = `<div class="character-main">${getOptionChar(kana)}</div>`;
-        card.dataset.romaji = kana.romaji;
-        card.dataset.char = getOptionChar(kana);
-        card.onclick = ()=>{
-          if(!gameState.running) return;
-          speakKana(card.dataset.char);
-          handleOptionSelection(kana, card);
-        };
-        column.appendChild(card);
+    // ===================== Render =====================
+    function renderTarget(){
+      const pair = current();
+      el.targetKana.textContent = pair ? targetChar(pair) : '—';
+      el.targetCard.classList.remove('correct');
+      el.skipBtn.disabled = !pair || state.queue.length <= 1 || state.locked;
+    }
+
+    function renderOptions(){
+      el.optionsTitle.textContent = MODES[state.mode].optionsTitle;
+      el.optionsGrid.innerHTML = '';
+
+      state.options.forEach(pair => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kana-card';
+        btn.lang = 'ja';
+        btn.textContent = optionChar(pair);
+        btn.dataset.romaji = pair.romaji;
+        btn.setAttribute('aria-label', `${optionChar(pair)} (${pair.romaji})`);
+        btn.addEventListener('click', () => choose(pair, btn));
+        el.optionsGrid.appendChild(btn);
       });
-    }
 
-    function clearOptionSelection(){
-      document.querySelectorAll('#options-column .character-card').forEach(c=>c.classList.remove('selected'));
-    }
-
-    function handleOptionSelection(kana, card){
-      if(!gameState.currentPair) return;
-
-      clearOptionSelection();
-      card.classList.add('selected');
-
-      gameState.attempts++;
-      updateStats();
-
-      if(kana.romaji === gameState.currentPair.romaji){
-        gameState.matchedPairs.push(kana.romaji);
-        gameState.score += 10;
-        gameState.matches++;
-        showMessage('✓ ¡Perfecto! 正解！','success');
-        playSuccessTone();
-
-        const targetCard = document.getElementById('current-target-card');
-        targetCard.classList.add('correct');
-        card.classList.add('correct');
-
-        setTimeout(()=>{
-          targetCard.classList.remove('correct');
-          clearOptionSelection();
-
-          gameState.optionOrder = gameState.optionOrder.filter(k => k.romaji !== kana.romaji);
-          renderOptions(gameState.optionOrder);
-
-          advanceToNext();
-
-          if(gameState.matches === gameState.totalPairs){
-            setTimeout(()=>{
-              showMessage('🎉 ¡Completado! よくできました！','success');
-              stopTimer();
-              renderCurrentTarget();
-            }, 150);
-          }
-        }, 450);
-      }else{
-        gameState.score = Math.max(0, gameState.score - 2);
-        card.classList.add('wrong');
-        setTimeout(()=>{ card.classList.remove('wrong','selected'); }, 600);
-        showMessage('✗ ¡Intenta de nuevo! もう一度！','error');
-      }
-
-      updateStats();
-    }
-
-    function advanceToNext(){
-      if(gameState.remainingPairs.length){
-        gameState.remainingPairs.shift();
-      }
-
-      if(gameState.remainingPairs.length){
-        gameState.currentPair = gameState.remainingPairs[0];
-      }else{
-        gameState.currentPair = null;
-      }
-
-      renderCurrentTarget();
-      announceCurrentTarget();
-    }
-
-    function cycleCurrent(){
-      if(!gameState.running) return;
-      if(gameState.remainingPairs.length <= 1) return;
-
-      const next = gameState.remainingPairs.shift();
-      gameState.remainingPairs.push(next);
-      gameState.currentPair = gameState.remainingPairs[0];
-      clearOptionSelection();
-      renderCurrentTarget();
-      const config = MODE_CONFIG[gameState.mode];
-      showMessage(config.cycleMessage);
-      announceCurrentTarget();
+      scheduleFit();
     }
 
     function updateStats(){
-      document.getElementById('score').textContent = gameState.score;
-      document.getElementById('matches').textContent = gameState.matches;
-      document.getElementById('attempts').textContent = gameState.attempts;
+      el.score.textContent = state.score;
+      el.matches.textContent = `${state.matches}/${state.total}`;
+      el.accuracy.textContent = state.attempts
+        ? Math.round((state.matches / state.attempts) * 100) + '%'
+        : '—';
+      el.progressBar.style.width = (state.matches / state.total * 100) + '%';
     }
 
-    function showMessage(text,type=''){
-      const el = document.getElementById('message');
-      el.textContent = text;
-      el.className = 'message '+type;
+    // ===================== Fase de trazado (modo caligrafía) =====================
+    // Datos: kana-strokes.js. Cada trazo trae su línea central (con dirección)
+    // y las siluetas que lo dibujan. Validamos que el gesto siga esa línea
+    // en el sentido correcto, y exigimos los trazos en su orden.
+    const VB = window.KANA_STROKE_VIEWBOX || 1024;
+    const STROKES = window.KANA_STROKES || null;
+
+    // Tolerancias en coordenadas del lienzo (VB). Generosas a propósito:
+    // con el dedo en un móvil la precisión es baja y frustrar no enseña.
+    const TOL_START = 200;   // cuán cerca del inicio hay que empezar
+    const TOL_END   = 200;   // y del final, terminar
+    const TOL_PATH  = 165;   // desviación máxima respecto al recorrido
+    const MAX_RATIO = 2.8;   // gesto/trazo: corta los garabatos
+
+    const TRACE = {
+      active:false, seq:[], charIdx:0, strokes:[], strokeIdx:0,
+      drawing:false, points:[], fails:0, onDone:null,
+      demo:0, demoRaf:null
+    };
+
+    // Medición geométrica de los paths (getPointAtLength necesita un SVG real)
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const measureSvg  = document.createElementNS(SVGNS,'svg');
+    const measurePath = document.createElementNS(SVGNS,'path');
+    measureSvg.setAttribute('width','0');
+    measureSvg.setAttribute('height','0');
+    measureSvg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+    measureSvg.appendChild(measurePath);
+    document.body.appendChild(measureSvg);
+
+    const sampleCache = new Map();
+    function sampleStroke(d, n = 26){
+      if(sampleCache.has(d)) return sampleCache.get(d);
+      measurePath.setAttribute('d', d);
+      const len = measurePath.getTotalLength();
+      const pts = [];
+      for(let i = 0; i < n; i++){
+        const p = measurePath.getPointAtLength(len * i / (n - 1));
+        pts.push({x:p.x, y:p.y});
+      }
+      const out = {pts, len};
+      sampleCache.set(d, out);
+      return out;
     }
 
-    // Flujo "Iniciar" (antes "Todos (46)") con cuenta regresiva
-    function startAllMode(){
-      resetAllStatsOnly();
-      countdownThen(()=>{
-        gameState.hasStarted = true;
-        gameState.totalPairs = allKanaData.length;
-        gameState.remainingPairs = shuffle(allKanaData);
-        gameState.currentPair = gameState.remainingPairs[0] || null;
-        gameState.optionOrder = shuffle(allKanaData);
-        renderCurrentTarget();
-        renderOptions(gameState.optionOrder);
-        startTimer();
-        const config = MODE_CONFIG[gameState.mode];
-        showMessage(config.startMessage);
-        announceCurrentTarget(true);
+    const pathCache = new Map();
+    function shadowPath(stroke){
+      const key = stroke.join('|');
+      if(pathCache.has(key)) return pathCache.get(key);
+      const p = new Path2D();
+      stroke.slice(1).forEach(d => p.addPath(new Path2D(d)));
+      pathCache.set(key, p);
+      return p;
+    }
+
+    const dist2 = (a,b) => (a.x-b.x)**2 + (a.y-b.y)**2;
+
+    // Distancia de un punto al segmento ab (al cuadrado)
+    function distToSeg2(p, a, b){
+      const vx = b.x-a.x, vy = b.y-a.y;
+      const l2 = vx*vx + vy*vy;
+      if(l2 === 0) return dist2(p,a);
+      let t = ((p.x-a.x)*vx + (p.y-a.y)*vy) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return dist2(p, {x:a.x+t*vx, y:a.y+t*vy});
+    }
+
+    function minDistToGesture(p, g){
+      let best = Infinity;
+      for(let i = 1; i < g.length; i++){
+        const d = distToSeg2(p, g[i-1], g[i]);
+        if(d < best) best = d;
+      }
+      return Math.sqrt(best);
+    }
+
+    const polyLen = g => {
+      let L = 0;
+      for(let i = 1; i < g.length; i++) L += Math.sqrt(dist2(g[i-1], g[i]));
+      return L;
+    };
+
+    // Devuelve {ok, why}. `why` alimenta la pista que se le muestra al usuario.
+    function validateStroke(gesture, stroke){
+      if(gesture.length < 2) return {ok:false, why:'corto'};
+      const {pts, len} = sampleStroke(stroke[0]);
+      const start = pts[0], end = pts[pts.length - 1];
+      const g0 = gesture[0], g1 = gesture[gesture.length - 1];
+
+      // Empezar por el otro extremo = trazo invertido. Se detecta aquí.
+      const invertido = Math.sqrt(dist2(g0, end)) < TOL_START &&
+                        Math.sqrt(dist2(g1, start)) < TOL_END;
+      if(Math.sqrt(dist2(g0, start)) > TOL_START)
+        return {ok:false, why: invertido ? 'direccion' : 'inicio'};
+      if(Math.sqrt(dist2(g1, end)) > TOL_END)
+        return {ok:false, why: invertido ? 'direccion' : 'fin'};
+
+      for(const p of pts){
+        if(minDistToGesture(p, gesture) > TOL_PATH) return {ok:false, why:'forma'};
+      }
+      if(polyLen(gesture) > len * MAX_RATIO) return {ok:false, why:'forma'};
+      return {ok:true};
+    }
+
+    // ---------- Render ----------
+    function sizeTraceCanvas(){
+      const c = el.traceCanvas;
+      const r = c.getBoundingClientRect();
+      if(r.width <= 0) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      c.width  = Math.round(r.width * dpr);
+      c.height = Math.round(r.height * dpr);
+    }
+
+    function drawTrace(){
+      const c = el.traceCanvas;
+      const ctx = c.getContext('2d');
+      if(!ctx || !c.width) return;
+      const s = c.width / VB;
+      ctx.setTransform(s, 0, 0, s, 0, 0);
+      ctx.clearRect(0, 0, VB, VB);
+
+      // Guías de cuaderno de caligrafía
+      ctx.strokeStyle = '#f0dfe2';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([14, 16]);
+      ctx.beginPath();
+      ctx.moveTo(VB/2, 0); ctx.lineTo(VB/2, VB);
+      ctx.moveTo(0, VB/2); ctx.lineTo(VB, VB/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Siluetas: hechas / actual / pendientes
+      TRACE.strokes.forEach((st, i) => {
+        if(i < TRACE.strokeIdx)      ctx.fillStyle = '#c31432';
+        else if(i === TRACE.strokeIdx) ctx.fillStyle = '#fadfe3';
+        else                          ctx.fillStyle = '#f2f2f4';
+        ctx.fill(shadowPath(st));
       });
-    }
 
-    // Cuenta regresiva 3-2-1-YA
-    function countdownThen(cb){
-      const overlay = document.getElementById('overlay');
-      const label = document.getElementById('countdown');
-      const steps = ['3','2','1','YA!'];
-      let index = 0;
-
-      clearCountdownTimers();
-      overlay.classList.add('show');
-      label.classList.remove('is-animating');
-      label.textContent = steps[0];
-
-      const runStep = ()=>{
-        label.textContent = steps[index];
-        label.classList.remove('is-animating');
-        void label.offsetWidth;
-        label.classList.add('is-animating');
-
-        if(index < steps.length - 1){
-          countdownTimeouts.push(setTimeout(()=>{
-            index++;
-            runStep();
-          }, 800));
-        }else{
-          countdownTimeouts.push(setTimeout(()=>{
-            overlay.classList.remove('show');
-            label.classList.remove('is-animating');
-            clearCountdownTimers();
-            cb && cb();
-          }, 650));
+      const cur = TRACE.strokes[TRACE.strokeIdx];
+      if(cur){
+        // Demo: rellena el trazo actual siguiendo su línea central
+        if(TRACE.demo > 0){
+          const {pts} = sampleStroke(cur[0]);
+          ctx.save();
+          ctx.clip(shadowPath(cur));
+          ctx.strokeStyle = '#c31432';
+          ctx.lineWidth = 150;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          const upto = Math.max(1, Math.floor(pts.length * TRACE.demo));
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for(let i = 1; i < upto; i++) ctx.lineTo(pts[i].x, pts[i].y);
+          ctx.stroke();
+          ctx.restore();
         }
-      };
 
-      countdownTimeouts.push(setTimeout(runStep, 20));
-    }
+        // Punto de inicio del trazo actual
+        const {pts} = sampleStroke(cur[0]);
+        const a = pts[0], b = pts[1];
+        ctx.fillStyle = '#c31432';
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, 34, 0, Math.PI*2);
+        ctx.fill();
+        // flecha corta indicando hacia dónde va
+        const ang = Math.atan2(b.y-a.y, b.x-a.x);
+        ctx.strokeStyle = '#c31432';
+        ctx.lineWidth = 14;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x + Math.cos(ang)*105, a.y + Math.sin(ang)*105);
+        ctx.stroke();
+      }
 
-    // Reset total (sin empezar juego)
-    function resetAll(){
-      resetAllStatsOnly();
-      const config = MODE_CONFIG[gameState.mode];
-      showMessage(`¡Listo! Presiona "Iniciar" para jugar ${config.targetTitle} ⇄ ${config.optionsTitle}.`);
-    }
-
-    function resetAllStatsOnly(){
-      stopTimer();
-      clearCountdownTimers();
-      if (speakTimeout) { clearTimeout(speakTimeout); speakTimeout = null; }
-      if('speechSynthesis' in window){ speechSynthesis.cancel(); }
-      gameState.currentPair = null;
-      gameState.remainingPairs = [];
-      gameState.optionOrder = [];
-      gameState.matchedPairs = [];
-      gameState.totalPairs = allKanaData.length;
-      gameState.score = 0; gameState.matches = 0; gameState.attempts = 0;
-      gameState.hasStarted = false;
-      updateStats();
-      renderOptions([]);
-      renderCurrentTarget();
-      document.getElementById('timer').textContent = '00:00.00';
-      const overlay = document.getElementById('overlay');
-      const label = document.getElementById('countdown');
-      overlay.classList.remove('show');
-      label.classList.remove('is-animating');
-    }
-
-    function updateModeToggle(){
-      const btn = document.getElementById('modeToggleBtn');
-      if(btn){
-        const config = MODE_CONFIG[gameState.mode];
-        btn.textContent = config.toggleLabel;
-        btn.setAttribute('aria-label', `Modo actual: ${config.targetTitle} → ${config.optionsTitle}. Haz clic para invertir.`);
-        btn.title = `Modo actual: ${config.targetTitle} → ${config.optionsTitle}. Haz clic para invertir.`;
+      // Gesto en curso
+      if(TRACE.points.length > 1){
+        ctx.strokeStyle = 'rgba(36,11,54,.45)';
+        ctx.lineWidth = 26;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(TRACE.points[0].x, TRACE.points[0].y);
+        for(let i = 1; i < TRACE.points.length; i++)
+          ctx.lineTo(TRACE.points[i].x, TRACE.points[i].y);
+        ctx.stroke();
       }
     }
 
-    function toggleMode(){
-      gameState.mode = gameState.mode === 'hiragana-to-katakana'
-        ? 'katakana-to-hiragana'
-        : 'hiragana-to-katakana';
-      resetAllStatsOnly();
-      updateModeToggle();
-      showMessage('Modo cambiado. Presiona "Iniciar" para comenzar.');
+    function updateTraceUI(){
+      const ch = TRACE.seq[TRACE.charIdx] || '';
+      el.traceChar.textContent = ch;
+      el.traceStep.textContent = TRACE.strokes.length
+        ? `trazo ${Math.min(TRACE.strokeIdx + 1, TRACE.strokes.length)} de ${TRACE.strokes.length}`
+        : '';
+      el.tracePair.innerHTML = TRACE.seq.map((c, i) =>
+        i < TRACE.charIdx ? `<span class="done">${c}</span>`
+        : i === TRACE.charIdx ? `<b>${c}</b>` : `<span>${c}</span>`
+      ).join(' → ');
     }
 
-    // Mensaje inicial
-    showMessage('Presiona "Iniciar" para comenzar con cuenta regresiva.');
-    renderCurrentTarget();
-    renderOptions([]);
-    updateModeToggle();
+    // ---------- Entrada del puntero ----------
+    function canvasPoint(e){
+      const r = el.traceCanvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) / r.width  * VB,
+        y: (e.clientY - r.top)  / r.height * VB
+      };
+    }
 
-    document.getElementById('skipBtn').addEventListener('click', cycleCurrent);
+    function onDown(e){
+      if(!TRACE.active || !TRACE.strokes.length) return;
+      e.preventDefault();
+      TRACE.drawing = true;
+      TRACE.points = [canvasPoint(e)];
+      // Capturar el puntero es una mejora (seguir el dedo aunque se salga del
+      // lienzo), no un requisito. Si el navegador la rechaza no debe impedir
+      // que se pueda escribir, así que va después y protegida.
+      try{ el.traceCanvas.setPointerCapture(e.pointerId); }catch(err){}
+      drawTrace();
+    }
+
+    function onMove(e){
+      if(!TRACE.drawing) return;
+      e.preventDefault();
+      const p = canvasPoint(e);
+      const last = TRACE.points[TRACE.points.length - 1];
+      if(dist2(p, last) < 36) return;      // ignora micro-temblores
+      TRACE.points.push(p);
+      drawTrace();
+    }
+
+    function onUp(e){
+      if(!TRACE.drawing) return;
+      TRACE.drawing = false;
+      try{ el.traceCanvas.releasePointerCapture(e.pointerId); }catch(err){}
+      const gesture = TRACE.points;
+      TRACE.points = [];
+
+      const stroke = TRACE.strokes[TRACE.strokeIdx];
+      if(!stroke){ drawTrace(); return; }
+
+      const res = validateStroke(gesture, stroke);
+      if(res.ok){
+        TRACE.fails = 0;
+        TRACE.strokeIdx++;
+        beep(520 + TRACE.strokeIdx * 60, 0.1);
+        drawTrace();
+        updateTraceUI();
+        if(TRACE.strokeIdx >= TRACE.strokes.length) charComplete();
+      }else{
+        TRACE.fails++;
+        el.traceCanvas.classList.add('bad');
+        setTimeout(() => el.traceCanvas.classList.remove('bad'), 420);
+        toast({
+          direccion:'Ese trazo va al revés · empieza por el punto',
+          inicio:   'Empieza en el punto rojo',
+          fin:      'No llegaste al final del trazo',
+          forma:    'Sigue la forma del trazo marcado',
+          corto:    'Traza el recorrido completo'
+        }[res.why] || 'Inténtalo otra vez', 'bad');
+        drawTrace();
+        if(TRACE.fails >= 2) playDemo();   // a la segunda, se lo enseñamos
+      }
+    }
+
+    function playDemo(){
+      if(TRACE.demoRaf) cancelAnimationFrame(TRACE.demoRaf);
+      TRACE.demo = 0.001;
+      const t0 = performance.now();
+      const step = now => {
+        TRACE.demo = Math.min(1, (now - t0) / 900);
+        drawTrace();
+        if(TRACE.demo < 1){
+          TRACE.demoRaf = requestAnimationFrame(step);
+        }else{
+          TRACE.demoRaf = setTimeout(() => {
+            TRACE.demo = 0; TRACE.demoRaf = null; drawTrace();
+          }, 400);
+        }
+      };
+      TRACE.demoRaf = requestAnimationFrame(step);
+    }
+
+    function charComplete(){
+      const ch = TRACE.seq[TRACE.charIdx];
+      el.traceCanvas.classList.add('ok');
+      speak(ch);                       // suena al terminar cada carácter
+      beep(880, 0.2);
+      setTimeout(() => {
+        el.traceCanvas.classList.remove('ok');
+        TRACE.charIdx++;
+        if(TRACE.charIdx < TRACE.seq.length){
+          loadTraceChar();
+        }else{
+          endTracing();
+        }
+      }, 620);
+    }
+
+    function loadTraceChar(){
+      const ch = TRACE.seq[TRACE.charIdx];
+      TRACE.strokes = (STROKES && STROKES[ch]) ? STROKES[ch] : [];
+      TRACE.strokeIdx = 0;
+      TRACE.fails = 0;
+      TRACE.points = [];
+      TRACE.demo = 0;
+      updateTraceUI();
+      requestAnimationFrame(() => { sizeTraceCanvas(); drawTrace(); });
+      // Si faltaran datos para este kana, no bloqueamos la partida.
+      if(!TRACE.strokes.length) setTimeout(charComplete, 200);
+    }
+
+    function startTracing(pair, onDone){
+      if(!STROKES){ onDone(); return; }
+      TRACE.active = true;
+      TRACE.onDone = onDone;
+      TRACE.seq = [targetChar(pair), optionChar(pair)];
+      TRACE.charIdx = 0;
+      pauseTimer();
+      showScreen(el.traceScreen);
+      loadTraceChar();
+    }
+
+    function endTracing(){
+      TRACE.active = false;
+      TRACE.drawing = false;
+      if(TRACE.demoRaf){ cancelAnimationFrame(TRACE.demoRaf); TRACE.demoRaf = null; }
+      TRACE.demo = 0;
+      hideScreens();
+      resumeTimer();
+      const done = TRACE.onDone;
+      TRACE.onDone = null;
+      if(done) done();
+    }
+
+    el.traceCanvas.addEventListener('pointerdown', onDown);
+    el.traceCanvas.addEventListener('pointermove', onMove);
+    el.traceCanvas.addEventListener('pointerup', onUp);
+    el.traceCanvas.addEventListener('pointercancel', onUp);
+    el.showStrokeBtn.addEventListener('click', playDemo);
+    el.skipStrokeBtn.addEventListener('click', () => {
+      if(!TRACE.active) return;
+      TRACE.strokeIdx++;
+      TRACE.fails = 0;
+      updateTraceUI();
+      drawTrace();
+      if(TRACE.strokeIdx >= TRACE.strokes.length) charComplete();
+    });
+    window.addEventListener('resize', () => {
+      if(TRACE.active){ sizeTraceCanvas(); drawTrace(); }
+    });
+
+    // ===================== Juego =====================
+    function choose(pair, card){
+      // FIX: `locked` cierra la ventana de 380ms en la que antes se podía
+      // reclickear la carta acertada y multiplicar puntos/aciertos.
+      if(!state.running || state.locked) return;
+      const target = current();
+      if(!target) return;
+
+      state.attempts++;
+
+      if(pair.romaji !== target.romaji){
+        state.score = Math.max(0, state.score - 2);
+        card.classList.add('wrong');
+        setTimeout(() => card.classList.remove('wrong'), 450);
+        // Sin beep de error: el rojo y el shake ya lo comunican, y un pitido
+        // encima taparía la pronunciación del kana que se acaba de tocar,
+        // que es justo lo que hay que aprender al fallar.
+        speak(optionChar(pair));
+        toast('もう一度 · Intenta de nuevo', 'bad');
+        updateStats();
+        return;
+      }
+
+      // Acierto
+      state.locked = true;
+      state.score += 10;
+      state.matches++;
+      updateStats();
+
+      card.classList.add('correct');
+      el.targetCard.classList.add('correct');
+      el.skipBtn.disabled = true;
+      beep(660, 0.22);
+      speak(optionChar(pair));            // FIX: ahora sí suena la carta elegida
+      toast('正解！ ¡Perfecto!', 'ok');
+
+      setTimeout(() => {
+        card.remove();
+        state.options = state.options.filter(p => p.romaji !== pair.romaji);
+        state.queue.shift();
+        fitGrid();
+
+        const advance = () => {
+          // FIX: el final se decide por la cola vacía, no por `matches === total`
+          // (una igualdad estricta que el bug anterior podía saltarse).
+          if(state.queue.length === 0){ finish(); return; }
+          state.locked = false;
+          renderTarget();
+          speak(targetChar(current()), 120);
+        };
+
+        // En caligrafía, entre acertar y pasar al siguiente se escriben los
+        // dos kana de la pareja. `locked` sigue activo mientras tanto.
+        if(state.variant === 'trace') startTracing(pair, advance);
+        else advance();
+      }, REVEAL_MS);
+    }
+
+    function skip(){
+      if(!state.running || state.locked || state.queue.length <= 1) return;
+      state.queue.push(state.queue.shift());
+      renderTarget();
+      speak(targetChar(current()));
+    }
+
+    function repeatAudio(){
+      if(current()) speak(targetChar(current()));
+    }
+
+    // ===================== Pantallas =====================
+    function showScreen(node){
+      [el.menuScreen, el.countdownScreen, el.resultScreen, el.traceScreen].forEach(s => {
+        s.hidden = (s !== node);
+      });
+    }
+    const hideScreens = () => showScreen(null);
+
+    let countdownTimers = [];
+    function clearCountdown(){
+      countdownTimers.forEach(clearTimeout);
+      countdownTimers = [];
+    }
+
+    function countdown(done){
+      const steps = ['3','2','1','YA!'];
+      let i = 0;
+      clearCountdown();
+      showScreen(el.countdownScreen);
+
+      const step = () => {
+        el.countdownLabel.textContent = steps[i];
+        el.countdownLabel.classList.remove('pop');
+        void el.countdownLabel.offsetWidth;
+        el.countdownLabel.classList.add('pop');
+        beep(i < steps.length - 1 ? 440 : 880, 0.12);
+
+        const last = i === steps.length - 1;
+        countdownTimers.push(setTimeout(() => {
+          if(last){ clearCountdown(); hideScreens(); done(); }
+          else { i++; step(); }
+        }, last ? 550 : 700));
+      };
+      step();
+    }
+
+    function resetGame(){
+      clearCountdown();
+      stopTimer();
+      cancelSpeech();
+      TRACE.active = false;
+      TRACE.drawing = false;
+      TRACE.points = [];
+      TRACE.onDone = null;
+      TRACE.demo = 0;
+      if(TRACE.demoRaf){ cancelAnimationFrame(TRACE.demoRaf); TRACE.demoRaf = null; }
+      pausedAt = 0;
+      state.queue = [];
+      state.options = [];
+      state.score = 0; state.matches = 0; state.attempts = 0;
+      state.total = KANA.length;
+      state.running = false;
+      state.locked = false;
+      state.elapsed = 0;
+      el.timer.textContent = '00:00.00';
+      updateStats();
+      renderOptions();
+      renderTarget();
+    }
+
+    function start(){
+      resetGame();
+      unlockAudio();
+      countdown(() => {
+        state.queue = shuffle(KANA);
+        state.options = shuffle(KANA);
+        state.running = true;
+        renderOptions();
+        renderTarget();
+        startTimer();
+        speak(targetChar(current()), 120);
+      });
+    }
+
+    function finish(){
+      state.running = false;
+      state.locked = false;
+      stopTimer();
+      cancelSpeech();
+
+      const ms = state.elapsed;
+      const acc = state.attempts ? Math.round((state.matches / state.attempts) * 100) : 0;
+      const isRecord = saveRecord(ms);
+      const best = loadRecords()[recordKey()];
+      const v = state.variant === 'trace' ? 'Caligrafía' : 'Clásico';
+
+      el.rTime.textContent = formatTime(ms);
+      el.rScore.textContent = state.score;
+      el.rAcc.textContent = acc + '%';
+      el.resultTitle.textContent = isRecord ? '🏅 ¡Nuevo récord!' : '🎉 よくできました！';
+      el.resultRecord.textContent =
+        `Mejor tiempo · ${v} ${MODES[state.mode].label}: ${formatTime(best)}`;
+
+      beep(660, 0.14);
+      setTimeout(() => beep(880, 0.24), 130);
+      showScreen(el.resultScreen);
+    }
+
+    function setMode(mode){
+      state.mode = mode;
+      el.modeHira.setAttribute('aria-pressed', String(mode === 'h2k'));
+      el.modeKata.setAttribute('aria-pressed', String(mode === 'k2h'));
+      el.optionsTitle.textContent = MODES[mode].optionsTitle;
+      showMenuRecord();
+      resetGame();
+    }
+
+    function setVariant(v){
+      state.variant = v;
+      el.varClassic.setAttribute('aria-pressed', String(v === 'classic'));
+      el.varTrace.setAttribute('aria-pressed', String(v === 'trace'));
+      el.menuLead.textContent = v === 'trace'
+        ? 'Busca la pareja del kana y luego escribe los dos a mano, trazo a trazo en su orden correcto.'
+        : 'Aparece un kana arriba. Busca su pareja abajo lo más rápido que puedas.';
+      if(v === 'trace' && !STROKES){
+        el.varTrace.setAttribute('aria-pressed','false');
+        state.variant = 'classic';
+        el.varClassic.setAttribute('aria-pressed','true');
+        toast('No se cargó kana-strokes.js', 'bad');
+      }
+      showMenuRecord();
+      resetGame();
+    }
+
+    function goMenu(){
+      resetGame();
+      showMenuRecord();
+      showScreen(el.menuScreen);
+    }
+
+    function toggleSound(){
+      state.soundOn = !state.soundOn;
+      el.soundBtn.textContent = state.soundOn ? '🔊' : '🔇';
+      el.soundBtn.classList.toggle('off', !state.soundOn);
+      el.soundBtn.setAttribute('aria-pressed', String(state.soundOn));
+      if(!state.soundOn) cancelSpeech();
+    }
+
+    // ===================== Eventos =====================
+    el.startBtn.addEventListener('click', start);
+    el.againBtn.addEventListener('click', start);
+    el.backBtn.addEventListener('click', goMenu);
+    el.menuBtn.addEventListener('click', goMenu);
+    el.skipBtn.addEventListener('click', skip);
+    el.targetCard.addEventListener('click', repeatAudio);
+    el.soundBtn.addEventListener('click', toggleSound);
+    el.modeHira.addEventListener('click', () => setMode('h2k'));
+    el.modeKata.addEventListener('click', () => setMode('k2h'));
+    el.varClassic.addEventListener('click', () => setVariant('classic'));
+    el.varTrace.addEventListener('click', () => setVariant('trace'));
+
+    el.voiceSelect.addEventListener('change', () => {
+      chosenVoiceURI = el.voiceSelect.value;
+      try{ localStorage.setItem(VOICE_KEY, chosenVoiceURI); }catch(e){}
+      unlockAudio();
+      speak(VOICE_TEST);   // se oye al instante cómo quedó
+    });
+    el.testVoiceBtn.addEventListener('click', () => {
+      unlockAudio();
+      speak(VOICE_TEST);
+    });
+
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape'){ goMenu(); return; }
+      if(e.key.toLowerCase() === 's'){ toggleSound(); return; }
+      if(e.key.toLowerCase() === 'r'){ repeatAudio(); return; }
+      if(e.code === 'Space' && !el.menuScreen.hidden){ e.preventDefault(); start(); return; }
+      if(TRACE.active) return;   // escribiendo: nada de saltar kana
+      if(e.code === 'Space' && document.activeElement === document.body){ e.preventDefault(); skip(); }
+    });
+
+    // Pausa el habla si la pestaña queda en segundo plano
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden) cancelSpeech();
+    });
+
+    // ===================== Arranque =====================
+    setVariant('classic');
+    setMode('h2k');
+    showScreen(el.menuScreen);
+    scheduleFit();
+    // Chrome suele devolver la lista de voces vacía en la primera llamada.
+    refreshVoices();
+    setTimeout(refreshVoices, 500);
+  })();
   </script>
 </body>
 </html>
